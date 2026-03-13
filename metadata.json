@@ -1,0 +1,7 @@
+{
+  "name": "Remix: Remix: copy 6 of T.H.E Technology - Warehouse Management",
+  "description": "Professional warehouse management system for sound rental gear featuring serialized/bulk tracking, real-time scanning, and automated reconciliation.",
+  "requestFramePermissions": [
+    "camera"
+  ]
+}
