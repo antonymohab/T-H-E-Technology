@@ -229,6 +229,11 @@ const App: React.FC = () => {
   const [checkedItems, setCheckedItems] = useState<Record<string, boolean>>({});
   const [technicianSearchQuery, setTechnicianSearchQuery] = useState('');
   const [technicianDateFilter, setTechnicianDateFilter] = useState('');
+  const [technicianStartDate, setTechnicianStartDate] = useState('');
+  const [technicianEndDate, setTechnicianEndDate] = useState('');
+  const [isSerialSelectionMode, setIsSerialSelectionMode] = useState(false);
+  const [selectedSerialsForUpdate, setSelectedSerialsForUpdate] = useState<string[]>([]);
+  const [serialStatusUpdateConfirm, setSerialStatusUpdateConfirm] = useState<'Maintenance' | 'Broken' | null>(null);
   const [calendarDate, setCalendarDate] = useState(new Date());
   const [calendarView, setCalendarView] = useState<'month' | 'week' | 'day'>('month');
 
@@ -777,10 +782,13 @@ const App: React.FC = () => {
   };
 
   const unavailableItemIds = useMemo(() => {
-    if (!eventDetails.startDate || !eventDetails.endDate) return new Set();
+    const startStr = currentUser?.role === 'technician' ? technicianStartDate : eventDetails.startDate;
+    const endStr = currentUser?.role === 'technician' ? technicianEndDate : eventDetails.endDate;
+
+    if (!startStr || !endStr) return new Set();
     
-    const start = new Date(eventDetails.startDate);
-    const end = new Date(eventDetails.endDate);
+    const start = new Date(startStr);
+    const end = new Date(endStr);
     const ids = new Set();
 
     eventsList.forEach(event => {
@@ -802,7 +810,7 @@ const App: React.FC = () => {
       }
     });
     return ids;
-  }, [eventsList, eventDetails.startDate, eventDetails.endDate]);
+  }, [eventsList, eventDetails.startDate, eventDetails.endDate, technicianStartDate, technicianEndDate, currentUser?.role]);
 
   const modelsInCategory = useMemo(() => {
     if (!selectedCategory) return [];
@@ -1063,6 +1071,27 @@ const App: React.FC = () => {
     setSelectedItemsForModification(new Set());
     setView('order-modification');
     notify("Modification mode active. You can adjust quantities.", "info");
+  };
+
+  const handleConfirmStatusUpdate = async () => {
+    if (!serialStatusUpdateConfirm || selectedSerialsForUpdate.length === 0) return;
+    
+    setSyncing(true);
+    const { error } = await supabase
+      .from('inventory_items')
+      .update({ status: serialStatusUpdateConfirm })
+      .in('id', selectedSerialsForUpdate);
+      
+    if (error) {
+      handleSupabaseError(error, "Update Status");
+    } else {
+      notify(`Successfully marked ${selectedSerialsForUpdate.length} items as ${serialStatusUpdateConfirm}`, "success");
+      fetchSupabaseData(currentUser?.role);
+      setIsSerialSelectionMode(false);
+      setSelectedSerialsForUpdate([]);
+      setSerialStatusUpdateConfirm(null);
+    }
+    setSyncing(false);
   };
 
   const handleStagingToggle = (unit: any) => {
@@ -1533,6 +1562,167 @@ const App: React.FC = () => {
     doc.save(`Manifest_${event?.event_name?.replace(/\s+/g, '_')}_${booking.id.slice(0, 8)}.pdf`);
   };
 
+  const handleDownloadTechnicianItemPDF = async () => {
+    if (!selectedModel) return;
+
+    const doc = new jsPDF();
+    
+    // 1. Load Company Logo
+    let logoImg: HTMLImageElement | null = null;
+    try {
+      const img = new Image();
+      img.src = THE_LOGO;
+      img.crossOrigin = "Anonymous";
+      await new Promise((resolve, reject) => {
+        img.onload = resolve;
+        img.onerror = reject;
+      });
+      logoImg = img;
+    } catch (e) {
+      console.error("Could not load logo", e);
+    }
+
+    // 2. Load Item Image
+    let itemImg: HTMLImageElement | null = null;
+    if (selectedModel.image_url) {
+      try {
+        const img = new Image();
+        img.crossOrigin = "Anonymous";
+        img.src = selectedModel.image_url;
+        await new Promise((resolve, reject) => {
+          img.onload = resolve;
+          img.onerror = reject;
+        });
+        itemImg = img;
+      } catch (e) {
+        console.warn("Could not load item image", e);
+      }
+    }
+
+    // 3. Gather Data
+    const modelItems = selectedModel.units || [];
+    const totalCount = modelItems.length;
+    
+    const availableItems = modelItems.filter((i: any) => i.status === 'Available' && !unavailableItemIds.has(i.id));
+    const reservedItems = modelItems.filter((i: any) => i.status === 'In Use' || i.status === 'Reserved' || (i.status === 'Available' && unavailableItemIds.has(i.id)));
+    const maintenanceItems = modelItems.filter((i: any) => i.status === 'Maintenance');
+    const brokenItems = modelItems.filter((i: any) => i.status === 'Broken');
+
+    const brandName = selectedModel.brands?.name || 'Unknown Brand';
+
+    // 4. Draw Header
+    if (logoImg) {
+      doc.addImage(logoImg, 'JPEG', 14, 10, 30, 30);
+    }
+    
+    doc.setFontSize(24);
+    doc.setFont("helvetica", "bold");
+    doc.text("EQUIPMENT REPORT", 14, 50);
+    
+    doc.setFontSize(10);
+    doc.setFont("helvetica", "normal");
+    doc.text(`Generated on: ${new Date().toLocaleDateString()}`, 14, 58);
+    doc.text(`Generated by: ${currentUser?.full_name || currentUser?.email || 'Unknown'}`, 14, 64);
+    if (technicianStartDate && technicianEndDate) {
+      doc.text(`Period: ${technicianStartDate} to ${technicianEndDate}`, 14, 70);
+    }
+
+    // 5. Draw Item Info
+    doc.setFillColor(245, 245, 245);
+    doc.rect(14, 75, 182, 40, 'F');
+    
+    if (itemImg) {
+      doc.addImage(itemImg, 'JPEG', 18, 79, 32, 32);
+    }
+
+    doc.setFontSize(18);
+    doc.setFont("helvetica", "bold");
+    doc.text(selectedModel.model_name, 60, 88);
+    
+    doc.setFontSize(12);
+    doc.setFont("helvetica", "normal");
+    doc.text(`Brand: ${brandName}`, 60, 96);
+    doc.text(`Category: ${selectedModel.categories?.name || 'N/A'}`, 60, 104);
+
+    // 6. Draw Stats
+    doc.setFontSize(14);
+    doc.setFont("helvetica", "bold");
+    doc.text("Inventory Status", 14, 130);
+
+    const statsData = [
+      ["Total Units", totalCount.toString()],
+      ["Available", availableItems.length.toString()],
+      ["Reserved", reservedItems.length.toString()],
+      ["Maintenance", maintenanceItems.length.toString()],
+      ["Broken", brokenItems.length.toString()]
+    ];
+
+    autoTable(doc, {
+      startY: 135,
+      head: [['Status', 'Count']],
+      body: statsData,
+      theme: 'grid',
+      headStyles: { fillColor: [40, 40, 40] },
+      margin: { left: 14, right: 14 }
+    });
+
+    // 7. Draw Serials List
+    const finalY = (doc as any).lastAutoTable.finalY || 135;
+    
+    doc.setFontSize(14);
+    doc.setFont("helvetica", "bold");
+    doc.text("Serial Numbers Directory", 14, finalY + 15);
+
+    const serialsData = modelItems
+      .sort((a: any, b: any) => a.serial_number.localeCompare(b.serial_number, undefined, { numeric: true, sensitivity: 'base' }))
+      .map((item: any) => {
+        let status = item.status;
+        if (status === 'Available' && unavailableItemIds.has(item.id)) {
+          status = 'Reserved';
+        }
+        let notes = item.notes || '-';
+        if ((status === 'Maintenance' || status === 'Broken') && item.maintenance_date_logged) {
+          const dateLogged = new Date(item.maintenance_date_logged).toLocaleDateString();
+          notes = `Logged: ${dateLogged} ${notes !== '-' ? '- ' + notes : ''}`;
+        }
+        return [
+          item.serial_number,
+          status,
+          notes
+        ];
+      });
+
+    autoTable(doc, {
+      startY: finalY + 20,
+      head: [['Serial Number', 'Status', 'Notes']],
+      body: serialsData,
+      theme: 'striped',
+      headStyles: { fillColor: [40, 40, 40] },
+      margin: { left: 14, right: 14 },
+      didParseCell: function(data) {
+        if (data.section === 'body' && data.column.index === 1) {
+          const status = data.cell.raw;
+          if (status === 'Broken') {
+            data.cell.styles.textColor = [153, 27, 27]; // Dark Red
+            data.cell.styles.fontStyle = 'bold';
+          } else if (status === 'Maintenance') {
+            data.cell.styles.textColor = [220, 38, 38]; // Red
+            data.cell.styles.fontStyle = 'bold';
+          } else if (status === 'Reserved' || status === 'In Use') {
+            data.cell.styles.textColor = [217, 119, 6]; // Amber/Yellow
+            data.cell.styles.fontStyle = 'bold';
+          } else if (status === 'Available') {
+            data.cell.styles.textColor = [37, 99, 235]; // Blue
+            data.cell.styles.fontStyle = 'bold';
+          }
+        }
+      }
+    });
+
+    // 8. Save
+    doc.save(`Item_Report_${selectedModel.model_name.replace(/\s+/g, '_')}_${new Date().toISOString().split('T')[0]}.pdf`);
+  };
+
   const handleDownloadItemPDF = async () => {
     if (!catalogSelectedModel) return;
 
@@ -1926,7 +2116,7 @@ const App: React.FC = () => {
             </h2>
           </div>
           <div className="flex items-center gap-4">
-            {cart.length > 0 && (
+            {cart.length > 0 && currentUser?.role !== 'technician' && (
               <button onClick={() => setView(editingOrderId ? 'edit-order' : 'checkout')} className="bg-zinc-950 text-white px-4 md:px-5 py-2 md:py-2.5 rounded-xl text-[8px] md:text-[9px] font-black uppercase tracking-widest flex items-center gap-2 md:gap-3 shadow-xl hover:bg-red-600 transition-all italic leading-none shrink-0 group">
                  <div className="relative">
                    <ShoppingCart size={16} />
@@ -3665,7 +3855,7 @@ const App: React.FC = () => {
               </div>
             )}
 
-            {view === 'maintenance' && currentUser?.role === 'admin' && (
+            {view === 'maintenance' && (currentUser?.role === 'admin' || currentUser?.role === 'technician') && (
               <div className="space-y-8 animate-in fade-in slide-in-from-bottom-2 duration-500 text-left">
                 <div className="flex flex-col md:flex-row md:items-end justify-between gap-6">
                   <div className="flex flex-col gap-2">
@@ -3936,7 +4126,7 @@ const App: React.FC = () => {
               </div>
             )}
 
-            {view === 'active-maintenance' && currentUser?.role === 'admin' && (
+            {view === 'active-maintenance' && (currentUser?.role === 'admin' || currentUser?.role === 'technician') && (
               <div className="space-y-8 animate-in fade-in slide-in-from-bottom-2 duration-500 text-left">
                 <div className="flex flex-col md:flex-row md:items-end justify-between gap-6">
                   <div className="flex flex-col gap-2">
@@ -5438,9 +5628,9 @@ const App: React.FC = () => {
               </div>
             )}
 
-            {view === 'planner' && (currentUser?.role === 'engineer' || currentUser?.role === 'admin') && (
+            {view === 'planner' && (currentUser?.role === 'engineer' || currentUser?.role === 'admin' || currentUser?.role === 'technician') && (
               <div className="space-y-8 animate-in fade-in slide-in-from-bottom-2 duration-500">
-                {!eventDetails.startDate ? (
+                {!eventDetails.startDate && currentUser?.role !== 'technician' ? (
                   <div className="flex flex-col items-center justify-center py-32 text-center space-y-6">
                     <div className="w-24 h-24 bg-zinc-100 rounded-full flex items-center justify-center text-zinc-300 mb-4">
                       <Calendar size={48} />
@@ -5460,7 +5650,7 @@ const App: React.FC = () => {
                   </div>
                 ) : (
                   <>
-                    {eventDetails.eventName && (
+                    {eventDetails.eventName && currentUser?.role !== 'technician' && (
                       <div className="bg-zinc-950 text-white p-6 rounded-[2rem] shadow-lg flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
                         <div>
                           <p className="text-[10px] font-black text-zinc-400 uppercase tracking-widest italic mb-1">CURRENT ORDER</p>
@@ -5614,73 +5804,166 @@ const App: React.FC = () => {
                          </div>
                       </div>
                     ) : (
-                      <div className="space-y-8 animate-in fade-in duration-500 text-left">
+                      <div className="space-y-6 animate-in fade-in duration-500 text-left">
                          <button onClick={() => setSelectedModel(null)} className="flex items-center gap-3 bg-white px-4 py-2 rounded-xl border border-zinc-100 font-black text-[10px] uppercase tracking-widest hover:bg-zinc-950 hover:text-white transition-all shadow-md group"><ArrowLeft size={16} className="group-hover:-translate-x-1 transition-transform" /> BACK TO CATALOG</button>
-                         <div className="grid grid-cols-1 lg:grid-cols-2 gap-8 lg:gap-14">
-                            <div className="bg-white rounded-[2.5rem] border border-zinc-50 shadow-inner p-8 md:p-12 flex items-center justify-center relative aspect-square group">
-                               {selectedModel?.image_url ? <img src={selectedModel.image_url} className="w-full h-full object-contain scale-110 drop-shadow-2xl group-hover:scale-115 transition-transform duration-1000" alt={selectedModel?.model_name} /> : <Box className="text-zinc-50" size={160} />}
-                               <div className="absolute bottom-4 right-4 md:bottom-8 md:right-8 flex flex-wrap gap-2 justify-end max-w-[80%]">
-                                  <div className="px-3 py-1.5 md:px-5 md:py-2.5 bg-zinc-950 text-white rounded-lg md:rounded-2xl font-black text-[9px] md:text-xs italic shadow-2xl">{selectedModel?.units?.length} TOTAL</div>
-                                  <div className="px-3 py-1.5 md:px-5 md:py-2.5 bg-emerald-500 text-white rounded-lg md:rounded-2xl font-black text-[9px] md:text-xs italic shadow-2xl">{inventory.filter(i => i.model_id === selectedModel?.id && getSerialNumberStatus(i) === 'Available').length} AVAILABLE</div>
-                                  <div className="px-3 py-1.5 md:px-5 md:py-2.5 bg-amber-500 text-white rounded-lg md:rounded-2xl font-black text-[9px] md:text-xs italic shadow-2xl">{selectedModel?.units?.filter((u: any) => u.status === 'In Use' || u.status === 'Reserved' || (u.status === 'Available' && unavailableItemIds.has(u.id))).length} RESERVED</div>
-                                  <div className="px-3 py-1.5 md:px-5 md:py-2.5 bg-red-500 text-white rounded-lg md:rounded-2xl font-black text-[9px] md:text-xs italic shadow-2xl">{selectedModel?.units?.filter((u: any) => u.status === 'Maintenance').length} MAINTENANCE</div>
-                                  <div className="px-3 py-1.5 md:px-5 md:py-2.5 bg-red-700 text-white rounded-lg md:rounded-2xl font-black text-[9px] md:text-xs italic shadow-2xl">{selectedModel?.units?.filter((u: any) => u.status === 'Broken').length} BROKEN</div>
+                         <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 lg:gap-10">
+                            <div className="flex flex-col gap-6">
+                               <div className="bg-[#f8f9fa] rounded-[2.5rem] p-6 md:p-8 flex flex-col items-center justify-center relative aspect-square group">
+                                  {selectedModel?.image_url ? <img src={selectedModel.image_url} className="w-full h-full object-contain scale-110 drop-shadow-2xl group-hover:scale-115 transition-transform duration-1000" alt={selectedModel?.model_name} /> : <Box className="text-zinc-200" size={160} />}
+                                  {currentUser?.role === 'admin' && (
+                                    <button className="absolute bottom-8 flex items-center gap-2 bg-white border border-zinc-200 text-zinc-950 px-6 py-3 rounded-xl text-[10px] font-black uppercase tracking-widest hover:bg-zinc-50 transition-all shadow-sm italic">
+                                      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path><polyline points="17 8 12 3 7 8"></polyline><line x1="12" y1="3" x2="12" y2="15"></line></svg>
+                                      CHANGE IMAGE
+                                    </button>
+                                  )}
+                               </div>
+                               <div className="flex flex-wrap gap-2 justify-start">
+                                  <div className="px-4 py-2 md:px-5 md:py-2.5 bg-zinc-950 text-white rounded-xl md:rounded-2xl font-black text-[10px] md:text-xs italic shadow-sm">{selectedModel?.units?.length} TOTAL</div>
+                                  <div className="px-4 py-2 md:px-5 md:py-2.5 bg-emerald-500 text-white rounded-xl md:rounded-2xl font-black text-[10px] md:text-xs italic shadow-sm">{inventory.filter(i => i.model_id === selectedModel?.id && getSerialNumberStatus(i) === 'Available').length} AVAILABLE</div>
+                                  <div className="px-4 py-2 md:px-5 md:py-2.5 bg-amber-500 text-white rounded-xl md:rounded-2xl font-black text-[10px] md:text-xs italic shadow-sm">{selectedModel?.units?.filter((u: any) => u.status === 'In Use' || u.status === 'Reserved' || (u.status === 'Available' && unavailableItemIds.has(u.id))).length} RESERVED</div>
+                                  <div className="px-4 py-2 md:px-5 md:py-2.5 bg-red-500 text-white rounded-xl md:rounded-2xl font-black text-[10px] md:text-xs italic shadow-sm">{selectedModel?.units?.filter((u: any) => u.status === 'Maintenance').length} MAINTENANCE</div>
+                                  <div className="px-4 py-2 md:px-5 md:py-2.5 bg-red-700 text-white rounded-xl md:rounded-2xl font-black text-[10px] md:text-xs italic shadow-sm">{selectedModel?.units?.filter((u: any) => u.status === 'Broken').length} BROKEN</div>
                                </div>
                             </div>
                             <div className="flex flex-col">
-                               <div className="mb-8 md:mb-10 flex flex-col">
-                                  <div className="flex items-center gap-4 mb-3">
-                                     {selectedModel?.brands?.logo_url && (
-                                       <div className="w-12 h-12 bg-white border border-zinc-100 rounded-xl flex items-center justify-center p-2 shadow-sm">
-                                          <img src={selectedModel.brands.logo_url} className="w-full h-full object-contain" alt={selectedModel.brands.name} />
-                                       </div>
-                                     )}
-                                     <p className="text-[14px] md:text-[16px] font-black text-[#8cbcf3] uppercase tracking-[0.5em] italic leading-none">{selectedModel?.brands?.name}</p>
+                               {currentUser?.role === 'technician' && (
+                                 <div className="flex flex-col gap-4 mb-6">
+                                   <div className="flex flex-wrap items-center gap-3">
+                                     <div className="relative">
+                                       <input 
+                                         type="date" 
+                                         value={technicianStartDate}
+                                         onChange={(e) => setTechnicianStartDate(e.target.value)}
+                                         className="w-40 pl-4 pr-10 py-3 bg-white border border-zinc-100 rounded-xl text-[10px] font-black uppercase tracking-widest outline-none focus:border-[#8cbcf3] transition-all shadow-sm [&::-webkit-calendar-picker-indicator]:opacity-0 [&::-webkit-calendar-picker-indicator]:absolute [&::-webkit-calendar-picker-indicator]:right-0 [&::-webkit-calendar-picker-indicator]:w-full [&::-webkit-calendar-picker-indicator]:h-full [&::-webkit-calendar-picker-indicator]:cursor-pointer"
+                                       />
+                                       <Calendar size={14} className="absolute right-4 top-1/2 -translate-y-1/2 text-zinc-950 pointer-events-none" />
+                                     </div>
+                                     <div className="relative">
+                                       <input 
+                                         type="date" 
+                                         value={technicianEndDate}
+                                         onChange={(e) => setTechnicianEndDate(e.target.value)}
+                                         className="w-40 pl-4 pr-10 py-3 bg-white border border-zinc-100 rounded-xl text-[10px] font-black uppercase tracking-widest outline-none focus:border-[#8cbcf3] transition-all shadow-sm [&::-webkit-calendar-picker-indicator]:opacity-0 [&::-webkit-calendar-picker-indicator]:absolute [&::-webkit-calendar-picker-indicator]:right-0 [&::-webkit-calendar-picker-indicator]:w-full [&::-webkit-calendar-picker-indicator]:h-full [&::-webkit-calendar-picker-indicator]:cursor-pointer"
+                                       />
+                                       <Calendar size={14} className="absolute right-4 top-1/2 -translate-y-1/2 text-zinc-950 pointer-events-none" />
+                                     </div>
+                                   </div>
+                                 </div>
+                               )}
+                               <div className="mb-6 md:mb-8 flex flex-col">
+                                  <div className="flex items-center justify-between mb-3">
+                                     <div className="flex items-center gap-4">
+                                       {selectedModel?.brands?.logo_url && (
+                                         <div className="w-12 h-12 bg-white border-2 border-zinc-950 rounded-lg flex items-center justify-center p-2 shadow-sm">
+                                            <img src={selectedModel.brands.logo_url} className="w-full h-full object-contain" alt={selectedModel.brands.name} />
+                                         </div>
+                                       )}
+                                       {currentUser?.role !== 'technician' && (
+                                         <p className="text-[14px] md:text-[16px] font-black text-[#8cbcf3] uppercase tracking-[0.5em] italic leading-none">{selectedModel?.brands?.name}</p>
+                                       )}
+                                     </div>
+                                     <button 
+                                       onClick={handleDownloadTechnicianItemPDF}
+                                       className="flex items-center gap-2 bg-zinc-950 text-white px-5 py-2.5 rounded-xl text-[10px] font-black uppercase tracking-widest hover:bg-zinc-800 transition-all shadow-md italic"
+                                     >
+                                       <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path><polyline points="7 10 12 15 17 10"></polyline><line x1="12" y1="15" x2="12" y2="3"></line></svg>
+                                       DOWNLOAD PDF
+                                     </button>
                                   </div>
-                                  <h3 className="text-3xl md:text-7xl font-black italic uppercase tracking-tighter text-zinc-950 leading-none">{selectedModel?.model_name}</h3>
+                                  <h3 className="text-3xl md:text-6xl font-black italic uppercase tracking-tighter text-zinc-950 leading-none">{selectedModel?.model_name}</h3>
                                </div>
                                <div className="flex-1 space-y-4 md:space-y-6">
-                                  <div className="flex items-center justify-between border-b-2 border-zinc-50 pb-4"><h4 className="text-sm md:text-base font-black uppercase italic tracking-widest text-zinc-950">SERIALS DIRECTORY</h4></div>
+                                  <div className="flex items-center justify-between border-b-2 border-zinc-50 pb-4">
+                                    <h4 className="text-sm md:text-base font-black uppercase italic tracking-widest text-zinc-950">SERIALS DIRECTORY</h4>
+                                    <div className="flex items-center gap-2">
+                                      {serialStatusUpdateConfirm ? (
+                                        <>
+                                          <span className="text-[10px] font-black text-zinc-400 uppercase tracking-widest italic mr-2">ARE YOU SURE?</span>
+                                          <button onClick={handleConfirmStatusUpdate} className="px-4 py-1.5 bg-emerald-50 text-emerald-600 rounded-full text-[10px] font-black uppercase tracking-widest hover:bg-emerald-100 transition-colors">YES</button>
+                                          <button onClick={() => setSerialStatusUpdateConfirm(null)} className="px-4 py-1.5 bg-zinc-50 text-zinc-600 rounded-full text-[10px] font-black uppercase tracking-widest hover:bg-zinc-100 transition-colors">NO</button>
+                                        </>
+                                      ) : isSerialSelectionMode ? (
+                                        <>
+                                          <button onClick={() => setSerialStatusUpdateConfirm('Maintenance')} disabled={selectedSerialsForUpdate.length === 0} className="px-4 py-1.5 bg-amber-50 text-amber-600 rounded-full text-[10px] font-black uppercase tracking-widest hover:bg-amber-100 transition-colors disabled:opacity-50">MAINTENANCE</button>
+                                          <button onClick={() => setSerialStatusUpdateConfirm('Broken')} disabled={selectedSerialsForUpdate.length === 0} className="px-4 py-1.5 bg-zinc-100 text-zinc-500 rounded-full text-[10px] font-black uppercase tracking-widest hover:bg-zinc-200 transition-colors disabled:opacity-50">BROKEN</button>
+                                          <button onClick={() => { setIsSerialSelectionMode(false); setSelectedSerialsForUpdate([]); }} className="px-4 py-1.5 bg-red-50 text-red-500 rounded-full text-[10px] font-black uppercase tracking-widest hover:bg-red-100 transition-colors">CANCEL</button>
+                                        </>
+                                      ) : (
+                                        <button onClick={() => setIsSerialSelectionMode(true)} className="px-6 py-1.5 bg-white border border-[#8cbcf3] text-[#8cbcf3] rounded-full text-[10px] font-black uppercase tracking-widest hover:bg-[#8cbcf3] hover:text-white transition-all shadow-sm">SELECT</button>
+                                      )}
+                                    </div>
+                                  </div>
                                   <div className="grid grid-cols-2 sm:grid-cols-3 gap-2.5 md:gap-3 max-h-[30vh] overflow-y-auto pr-3 scrollbar-hide py-1">
-                                     {selectedModel?.units?.map((unit: any) => {
+                                     {[...(selectedModel?.units || [])]
+                                       .sort((a: any, b: any) => a.serial_number.localeCompare(b.serial_number, undefined, { numeric: true, sensitivity: 'base' }))
+                                       .map((unit: any) => {
                                         const isStaged = stagedItems.some(s => s.id === unit.id);
                                         const isInCart = cart.some(c => c.id === unit.id);
                                         const isAvailable = unit?.status === 'Available' && !unavailableItemIds.has(unit.id);
+                                        const isSelectedForUpdate = selectedSerialsForUpdate.includes(unit.id);
                                         
                                         return (
                                           <button 
                                             key={unit.id} 
-                                            disabled={!isAvailable || isInCart} 
-                                            onClick={() => handleStagingToggle(unit)} 
-                                            className={`p-2.5 md:p-4 rounded-xl md:rounded-[1.5rem] border-2 transition-all flex flex-col items-start gap-2 shadow-sm active:scale-95 ${isStaged ? 'bg-zinc-950 border-zinc-950 shadow-2xl ring-2 ring-[#8cbcf3]/20 scale-105' : isInCart ? 'bg-blue-50 border-blue-200 opacity-80 cursor-default' : isAvailable ? 'bg-white border-zinc-100 hover:border-[#8cbcf3] hover:shadow-lg' : 'bg-red-50 border-red-100 opacity-40 cursor-not-allowed'}`}
+                                            disabled={!isSerialSelectionMode && (!isAvailable || isInCart || currentUser?.role === 'technician')} 
+                                            onClick={() => {
+                                              if (isSerialSelectionMode) {
+                                                setSelectedSerialsForUpdate(prev => 
+                                                  prev.includes(unit.id) ? prev.filter(id => id !== unit.id) : [...prev, unit.id]
+                                                );
+                                              } else {
+                                                handleStagingToggle(unit);
+                                              }
+                                            }} 
+                                            className={`p-4 md:p-5 min-h-[110px] rounded-2xl md:rounded-[1.5rem] border-2 transition-all flex flex-col items-start justify-between gap-3 shadow-sm active:scale-95 ${
+                                              isSelectedForUpdate
+                                                ? 'bg-blue-50 border-blue-500 shadow-md ring-2 ring-blue-500/20 scale-105'
+                                                : isStaged 
+                                                  ? 'bg-white border-blue-500 shadow-md ring-2 ring-blue-500/20 scale-105' 
+                                                  : isInCart 
+                                                    ? 'bg-blue-50 border-blue-200 opacity-80 cursor-default' 
+                                                    : isAvailable 
+                                                      ? (currentUser?.role === 'technician' && !isSerialSelectionMode ? 'bg-white border-zinc-100 cursor-default' : 'bg-white border-zinc-100 hover:border-blue-500 hover:shadow-md') 
+                                                      : (isSerialSelectionMode ? 'bg-white border-zinc-100 hover:border-blue-500 hover:shadow-md' : 'bg-white border-zinc-100 cursor-not-allowed')
+                                            }`}
                                           >
                                             <div className="flex items-center justify-between w-full">
-                                               <div className={`p-1 md:p-1.5 rounded-lg ${isStaged ? 'bg-red-600' : 'bg-zinc-50'}`}><Hash size={10} className={isStaged ? 'text-white' : 'text-zinc-300'} /></div>
-                                               {isStaged && <CheckCircle2 size={12} className="text-emerald-500 animate-in zoom-in duration-300" />}
-                                               {isInCart && <Truck size={12} className="text-blue-500" />}
+                                               <div className={`p-1.5 md:p-2 rounded-lg ${isSelectedForUpdate || isStaged ? 'bg-blue-500' : 'bg-zinc-50'}`}>
+                                                 {isSelectedForUpdate || isStaged ? <CheckCircle2 size={12} className="text-white" /> : <Hash size={12} className="text-zinc-300" />}
+                                               </div>
+                                               {isInCart && <Truck size={14} className="text-blue-500" />}
                                             </div>
-                                            <p className={`text-[8px] md:text-[10px] font-black uppercase tracking-widest italic leading-tight ${isStaged ? 'text-white' : isInCart ? 'text-blue-700' : 'text-zinc-950'}`}>{unit?.serial_number}</p>
-                                            <p className={`text-[7px] font-bold uppercase italic mt-0.5 leading-none ${isStaged ? 'text-white/50' : isInCart ? 'text-blue-500' : 'text-zinc-400'}`}>
-                                              {isInCart ? 'In Truck' : isAvailable ? 'Available' : (unit?.status === 'Maintenance' ? 'Maintenance' : unit?.status === 'Broken' ? 'Broken' : 'Reserved')}
-                                            </p>
+                                            <div className="flex flex-col items-start text-left mt-2">
+                                              <p className={`text-[10px] md:text-xs font-black uppercase tracking-widest italic leading-tight ${isInCart ? 'text-blue-700' : 'text-zinc-950'}`}>{unit?.serial_number}</p>
+                                              <p className={`text-[8px] md:text-[9px] font-black uppercase italic mt-1 leading-none ${
+                                                isInCart ? 'text-blue-500' : 
+                                                isAvailable ? 'text-zinc-300' : 
+                                                (unit?.status === 'Maintenance' ? 'text-red-500' : 
+                                                unit?.status === 'Broken' ? 'text-zinc-500' : 'text-amber-500')
+                                              }`}>
+                                                {isInCart ? 'IN TRUCK' : isAvailable ? 'AVAILABLE' : (unit?.status === 'Maintenance' ? 'MAINTENANCE' : unit?.status === 'Broken' ? 'BROKEN' : 'RESERVED')}
+                                              </p>
+                                            </div>
                                           </button>
                                         );
                                      })}
                                   </div>
                                </div>
-                               <div className="mt-8 md:mt-10 pt-6 border-t-2 border-zinc-50">
-                                  <button 
-                                    onClick={handleAddSelectionToTruck} 
-                                    disabled={stagedItems.length === 0} 
-                                    className={`w-full flex items-center justify-center gap-3 py-4 md:py-4.5 bg-zinc-950 text-white rounded-full font-black text-xs md:text-sm uppercase italic tracking-[0.2em] shadow-4xl transition-all active:scale-95 disabled:opacity-20 ${isAddingToTruck ? 'bg-emerald-500' : 'hover:bg-zinc-800'}`}
-                                  >
-                                    {isAddingToTruck ? (
-                                      <><CheckCircle2 className="animate-in zoom-in" size={18} /> ADDED TO TRUCK</>
-                                    ) : (
-                                      <><ShoppingCart size={18} /> {stagedItems.length > 0 ? `ADD TO TRUCK (${stagedItems.length})` : 'SELECT SERIALS ABOVE'}</>
-                                    )}
-                                  </button>
-                               </div>
+                               {currentUser?.role !== 'technician' && (
+                                 <div className="mt-8 md:mt-10 pt-6 border-t-2 border-zinc-50">
+                                    <button 
+                                      onClick={handleAddSelectionToTruck} 
+                                      disabled={stagedItems.length === 0} 
+                                      className={`w-full flex items-center justify-center gap-3 py-4 md:py-4.5 bg-zinc-950 text-white rounded-full font-black text-xs md:text-sm uppercase italic tracking-[0.2em] shadow-4xl transition-all active:scale-95 disabled:opacity-20 ${isAddingToTruck ? 'bg-emerald-500' : 'hover:bg-zinc-800'}`}
+                                    >
+                                      {isAddingToTruck ? (
+                                        <><CheckCircle2 className="animate-in zoom-in" size={18} /> ADDED TO TRUCK</>
+                                      ) : (
+                                        <><ShoppingCart size={18} /> {stagedItems.length > 0 ? `ADD TO TRUCK (${stagedItems.length})` : 'SELECT SERIALS ABOVE'}</>
+                                      )}
+                                    </button>
+                                 </div>
+                               )}
                             </div>
                          </div>
                       </div>
@@ -6320,6 +6603,15 @@ const App: React.FC = () => {
                         <p className="text-[10px] font-black text-zinc-400 uppercase tracking-[0.4em] italic leading-none">APPROVED EVENTS FOR DISPATCH</p>
                       </div>
                       <div className="flex items-center gap-3 w-full md:w-auto">
+                        <div className="relative flex-1 md:w-48">
+                          <Calendar size={16} className="absolute left-4 top-1/2 -translate-y-1/2 text-zinc-400" />
+                          <input 
+                            type="date" 
+                            value={technicianDateFilter}
+                            onChange={(e) => setTechnicianDateFilter(e.target.value)}
+                            className="w-full pl-10 pr-4 py-3 bg-white border border-zinc-200 rounded-xl text-xs font-bold uppercase tracking-widest focus:outline-none focus:border-zinc-950 transition-colors"
+                          />
+                        </div>
                         <div className="relative flex-1 md:w-64">
                           <Search size={16} className="absolute left-4 top-1/2 -translate-y-1/2 text-zinc-400" />
                           <input 
@@ -6327,15 +6619,6 @@ const App: React.FC = () => {
                             placeholder="SEARCH ORDERS..." 
                             value={technicianSearchQuery}
                             onChange={(e) => setTechnicianSearchQuery(e.target.value)}
-                            className="w-full pl-10 pr-4 py-3 bg-white border border-zinc-200 rounded-xl text-xs font-bold uppercase tracking-widest focus:outline-none focus:border-zinc-950 transition-colors"
-                          />
-                        </div>
-                        <div className="relative flex-1 md:w-48">
-                          <Calendar size={16} className="absolute left-4 top-1/2 -translate-y-1/2 text-zinc-400" />
-                          <input 
-                            type="date" 
-                            value={technicianDateFilter}
-                            onChange={(e) => setTechnicianDateFilter(e.target.value)}
                             className="w-full pl-10 pr-4 py-3 bg-white border border-zinc-200 rounded-xl text-xs font-bold uppercase tracking-widest focus:outline-none focus:border-zinc-950 transition-colors"
                           />
                         </div>
