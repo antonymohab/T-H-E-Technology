@@ -1,0 +1,27 @@
+105:  const [selectedModel, setSelectedModel] = useState<any | null>(null);
+1566:    if (!selectedModel) return;
+1587:    if (selectedModel.image_url) {
+1591:        img.src = selectedModel.image_url;
+1603:    const modelItems = selectedModel.units || [];
+1611:    const brandName = selectedModel.brands?.name || 'Unknown Brand';
+1640:    doc.text(selectedModel.model_name, 60, 88);
+1645:    doc.text(`Category: ${selectedModel.categories?.name || 'N/A'}`, 60, 104);
+1723:    doc.save(`Item_Report_${selectedModel.model_name.replace(/\s+/g, '_')}_${new Date().toISOString().split('T')[0]}.pdf`);
+2542:                              value={selectedModel?.id || ''}
+2573:                                if (!selectedModel || !quantity || quantity < 1) {
+2584:                                  .eq('model_id', selectedModel.id);
+2589:                                  model_id: selectedModel.id,
+2590:                                  serial_number: `${selectedModel.model_name.toUpperCase().replace(/\s+/g, '-')}-SN-${startCount + i}`,
+2602:                                  notify(`Successfully added ${quantity} units of ${selectedModel.model_name}`, "success");
+5782:                    ) : !selectedModel ? (
+5812:                                  {selectedModel?.image_url ? <img src={selectedModel.image_url} className="w-full h-full object-contain scale-110 drop-shadow-2xl group-hover:scale-115 transition-transform duration-1000" alt={selectedModel?.model_name} /> : <Box className="text-zinc-200" size={160} />}
+5821:                                  <div className="px-4 py-2 md:px-5 md:py-2.5 bg-zinc-950 text-white rounded-xl md:rounded-2xl font-black text-[10px] md:text-xs italic shadow-sm">{selectedModel?.units?.length} TOTAL</div>
+5822:                                  <div className="px-4 py-2 md:px-5 md:py-2.5 bg-emerald-500 text-white rounded-xl md:rounded-2xl font-black text-[10px] md:text-xs italic shadow-sm">{inventory.filter(i => i.model_id === selectedModel?.id && getSerialNumberStatus(i) === 'Available').length} AVAILABLE</div>
+5823:                                  <div className="px-4 py-2 md:px-5 md:py-2.5 bg-amber-500 text-white rounded-xl md:rounded-2xl font-black text-[10px] md:text-xs italic shadow-sm">{selectedModel?.units?.filter((u: any) => u.status === 'In Use' || u.status === 'Reserved' || (u.status === 'Available' && unavailableItemIds.has(u.id))).length} RESERVED</div>
+5824:                                  <div className="px-4 py-2 md:px-5 md:py-2.5 bg-red-500 text-white rounded-xl md:rounded-2xl font-black text-[10px] md:text-xs italic shadow-sm">{selectedModel?.units?.filter((u: any) => u.status === 'Maintenance').length} MAINTENANCE</div>
+5825:                                  <div className="px-4 py-2 md:px-5 md:py-2.5 bg-red-700 text-white rounded-xl md:rounded-2xl font-black text-[10px] md:text-xs italic shadow-sm">{selectedModel?.units?.filter((u: any) => u.status === 'Broken').length} BROKEN</div>
+5856:                                       {selectedModel?.brands?.logo_url && (
+5858:                                            <img src={selectedModel.brands.logo_url} className="w-full h-full object-contain" alt={selectedModel.brands.name} />
+5862:                                         <p className="text-[14px] md:text-[16px] font-black text-[#8cbcf3] uppercase tracking-[0.5em] italic leading-none">{selectedModel?.brands?.name}</p>
+5873:                                  <h3 className="text-3xl md:text-6xl font-black italic uppercase tracking-tighter text-zinc-950 leading-none">{selectedModel?.model_name}</h3>
+5897:                                     {[...(selectedModel?.units || [])]
