@@ -2459,9 +2459,11 @@ const App: React.FC = () => {
                                 onClick={() => {
                                   const model = models.find(m => m.id === group.inventory_items?.equipment_models?.id);
                                   if (model) {
+                                    setCatalogSelectedCategory(model.category_id);
+                                    setCatalogSelectedBrand(model.brand_id);
                                     setCatalogSelectedModel(model);
                                     setCatalogView('item-details');
-                                    setView('inventory');
+                                    setView('inventory-management');
                                     setInventoryTab('catalog');
                                   }
                                 }}
@@ -2771,7 +2773,7 @@ const App: React.FC = () => {
                                    return (
                                      <div 
                                        key={model.id} 
-                                       onClick={() => { setCatalogSelectedModel(model); setCatalogView('item-details'); setCatalogSearchQuery(''); }}
+                                       onClick={() => { setCatalogSelectedCategory(model.category_id); setCatalogSelectedBrand(model.brand_id); setCatalogSelectedModel(model); setCatalogView('item-details'); setCatalogSearchQuery(''); }}
                                        className="bg-white p-6 rounded-[2.5rem] border border-zinc-100 shadow-sm hover:shadow-xl transition-all group relative overflow-hidden cursor-pointer"
                                      >
                                         <div className="absolute top-6 right-6 z-10 flex flex-col gap-1 items-end">
@@ -2799,7 +2801,7 @@ const App: React.FC = () => {
                                         <div className="mt-6 flex items-center justify-between">
                                            <span className="text-[9px] font-black text-zinc-300 uppercase tracking-widest italic">TAP FOR REGISTRY</span>
                                            <button 
-                                             onClick={() => { setCatalogSelectedModel(model); setCatalogView('item-details'); setCatalogSearchQuery(''); }}
+                                             onClick={() => { setCatalogSelectedCategory(model.category_id); setCatalogSelectedBrand(model.brand_id); setCatalogSelectedModel(model); setCatalogView('item-details'); setCatalogSearchQuery(''); }}
                                              className="w-10 h-10 bg-zinc-950 rounded-full flex items-center justify-center text-white hover:bg-[#8cbcf3] transition-all shadow-lg"
                                            >
                                               <Plus size={18} />
@@ -2891,7 +2893,7 @@ const App: React.FC = () => {
                                     return (
                                       <div 
                                         key={model.id} 
-                                        onClick={() => { setCatalogSelectedModel(model); setCatalogView('item-details'); }}
+                                        onClick={() => { setCatalogSelectedCategory(model.category_id); setCatalogSelectedBrand(model.brand_id); setCatalogSelectedModel(model); setCatalogView('item-details'); }}
                                         className="bg-white p-5 md:p-6 rounded-[2rem] md:rounded-[2.5rem] border border-zinc-100 shadow-sm hover:shadow-xl transition-all group relative overflow-hidden cursor-pointer"
                                       >
                                          <div className="absolute top-5 right-5 md:top-6 md:right-6 z-10 flex flex-col gap-1 items-end">
@@ -3329,7 +3331,10 @@ const App: React.FC = () => {
                                           key={model.id} 
                                           className="flex items-center justify-between p-3 hover:bg-zinc-50 rounded-xl transition-colors group cursor-pointer"
                                           onClick={() => {
-                                            setSelectedModel(model);
+                                            setCatalogSelectedCategory(model.category_id);
+                                            setCatalogSelectedBrand(model.brand_id);
+                                            setCatalogSelectedModel(model);
+                                            setCatalogView('item-details');
                                             setInventoryTab('catalog');
                                           }}
                                         >
@@ -5427,9 +5432,9 @@ const App: React.FC = () => {
                                               onClick={() => {
                                                 const model = models.find(m => m.id === group.inventory_items?.equipment_models?.id);
                                                 if (model) {
-                                                  setCatalogSelectedModel(model);
+                                                  setCatalogSelectedCategory(model.category_id); setCatalogSelectedBrand(model.brand_id); setCatalogSelectedModel(model);
                                                   setCatalogView('item-details');
-                                                  setView('inventory');
+                                                  setView('inventory-management');
                                                   setInventoryTab('catalog');
                                                 }
                                               }}
@@ -5689,9 +5694,9 @@ const App: React.FC = () => {
                                               onClick={() => {
                                                 const model = models.find(m => m.id === group.inventory_items?.equipment_models?.id);
                                                 if (model) {
-                                                  setCatalogSelectedModel(model);
+                                                  setCatalogSelectedCategory(model.category_id); setCatalogSelectedBrand(model.brand_id); setCatalogSelectedModel(model);
                                                   setCatalogView('item-details');
-                                                  setView('inventory');
+                                                  setView('inventory-management');
                                                   setInventoryTab('catalog');
                                                 }
                                               }}
