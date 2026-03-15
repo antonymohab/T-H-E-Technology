@@ -62,6 +62,17 @@ const CATEGORY_ORDER = [
   "Electric"
 ];
 
+const CATEGORY_IMAGES: Record<string, string> = {
+  "Speakers": "https://ksjzrlardsfqfbariypa.supabase.co/storage/v1/object/public/Logos%20&%20Others/Main%20Menu/speakers.jpeg",
+  "Power Amps": "https://ksjzrlardsfqfbariypa.supabase.co/storage/v1/object/public/Logos%20&%20Others/Main%20Menu/Power%20Amps.png",
+  "Mixing Consoles": "https://ksjzrlardsfqfbariypa.supabase.co/storage/v1/object/public/Logos%20&%20Others/Main%20Menu/Mixing%20Con.png",
+  "Networking": "https://ksjzrlardsfqfbariypa.supabase.co/storage/v1/object/public/Logos%20&%20Others/Main%20Menu/Networking.png",
+  "Microphones": "https://ksjzrlardsfqfbariypa.supabase.co/storage/v1/object/public/Logos%20&%20Others/Main%20Menu/Microphones.png",
+  "Backline": "https://ksjzrlardsfqfbariypa.supabase.co/storage/v1/object/public/Logos%20&%20Others/Main%20Menu/Backline.png",
+  "Speaker Cables": "https://ksjzrlardsfqfbariypa.supabase.co/storage/v1/object/public/Logos%20&%20Others/Main%20Menu/Speaker%20cables.png",
+  "Electric": "https://ksjzrlardsfqfbariypa.supabase.co/storage/v1/object/public/Logos%20&%20Others/Main%20Menu/Electirc.png"
+};
+
 const getCategoryOrder = (categoryName: string) => {
   const index = CATEGORY_ORDER.indexOf(categoryName);
   return index === -1 ? 999 : index;
@@ -5861,8 +5872,8 @@ const App: React.FC = () => {
                         {categories.map(cat => (
                           <div key={cat.id} className="bg-white rounded-[2rem] border border-zinc-100 p-6 shadow-sm hover:shadow-xl transition-all group flex flex-col relative overflow-hidden cursor-pointer" onClick={() => setSelectedCategory(cat.name)}>
                             <div className="aspect-[1.5/1] bg-zinc-50/50 rounded-2xl flex items-center justify-center mb-5 relative border border-zinc-50 shadow-inner group-hover:bg-white transition-all overflow-hidden">
-                              {cat.name === 'Speakers' ? (
-                                <img src="https://ksjzrlardsfqfbariypa.supabase.co/storage/v1/object/public/Logos%20&%20Others/Main%20Menu/speakers.jpeg" className="w-full h-full object-cover" alt="Speakers" />
+                              {CATEGORY_IMAGES[cat.name] ? (
+                                <img src={CATEGORY_IMAGES[cat.name]} className="w-full h-full object-cover" alt={cat.name} />
                               ) : (
                                 <Layers className="text-zinc-100 group-hover:text-zinc-200 transition-colors" size={60} />
                               )}
