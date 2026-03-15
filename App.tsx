@@ -63,14 +63,19 @@ const CATEGORY_ORDER = [
 ];
 
 const CATEGORY_IMAGES: Record<string, string> = {
-  "Speakers": "https://ksjzrlardsfqfbariypa.supabase.co/storage/v1/object/public/Logos%20&%20Others/Main%20Menu/speakers.jpeg",
-  "Power Amps": "https://ksjzrlardsfqfbariypa.supabase.co/storage/v1/object/public/Logos%20&%20Others/Main%20Menu/Power%20Amps.png",
-  "Mixing Consoles": "https://ksjzrlardsfqfbariypa.supabase.co/storage/v1/object/public/Logos%20&%20Others/Main%20Menu/Mixing%20Conssoles.png",
-  "Networking": "https://ksjzrlardsfqfbariypa.supabase.co/storage/v1/object/public/Logos%20&%20Others/Main%20Menu/Networking.png",
-  "Microphones": "https://ksjzrlardsfqfbariypa.supabase.co/storage/v1/object/public/Logos%20&%20Others/Main%20Menu/Microphones.png",
-  "Backline": "https://ksjzrlardsfqfbariypa.supabase.co/storage/v1/object/public/Logos%20&%20Others/Main%20Menu/Backline.png",
-  "Speaker Cables": "https://ksjzrlardsfqfbariypa.supabase.co/storage/v1/object/public/Logos%20&%20Others/Main%20Menu/Speaker%20cables.png",
-  "Electric": "https://ksjzrlardsfqfbariypa.supabase.co/storage/v1/object/public/Logos%20&%20Others/Main%20Menu/Electirc.png"
+  "speakers": "https://ksjzrlardsfqfbariypa.supabase.co/storage/v1/object/public/Logos%20&%20Others/Main%20Menu/speakers.jpeg",
+  "power amps": "https://ksjzrlardsfqfbariypa.supabase.co/storage/v1/object/public/Logos%20&%20Others/Main%20Menu/Power%20Amps.png",
+  "mixing consoles": "https://ksjzrlardsfqfbariypa.supabase.co/storage/v1/object/public/Logos%20&%20Others/Main%20Menu/Mixing%20Conssoles.png",
+  "networking": "https://ksjzrlardsfqfbariypa.supabase.co/storage/v1/object/public/Logos%20&%20Others/Main%20Menu/Networking.png",
+  "microphones": "https://ksjzrlardsfqfbariypa.supabase.co/storage/v1/object/public/Logos%20&%20Others/Main%20Menu/Microphones.png",
+  "backline": "https://ksjzrlardsfqfbariypa.supabase.co/storage/v1/object/public/Logos%20&%20Others/Main%20Menu/Backline.png",
+  "speaker cables": "https://ksjzrlardsfqfbariypa.supabase.co/storage/v1/object/public/Logos%20&%20Others/Main%20Menu/Speaker%20cables.png",
+  "electric": "https://ksjzrlardsfqfbariypa.supabase.co/storage/v1/object/public/Logos%20&%20Others/Main%20Menu/Electirc.png"
+};
+
+const getCategoryImage = (name: string) => {
+  if (!name) return null;
+  return CATEGORY_IMAGES[name.toLowerCase().trim()];
 };
 
 const getCategoryOrder = (categoryName: string) => {
@@ -2841,18 +2846,24 @@ const App: React.FC = () => {
                               <div 
                                 key={cat.id} 
                                 onClick={() => { setCatalogSelectedCategory(cat.id); setCatalogView('brands'); }} 
-                                className="bg-white p-6 md:p-8 rounded-[2rem] md:rounded-[2.5rem] border border-zinc-100 shadow-sm hover:shadow-xl transition-all cursor-pointer group relative overflow-hidden aspect-[4/3] flex flex-col justify-between"
+                                className="bg-white p-6 md:p-8 rounded-[2rem] md:rounded-[2.5rem] border border-zinc-100 shadow-sm hover:shadow-xl transition-all cursor-pointer group relative overflow-hidden flex flex-col"
                               >
                                  <div className="absolute inset-0 bg-gradient-to-br from-zinc-50 to-white opacity-50 z-0" />
-                                 <div className="relative z-10 flex-1 flex items-center justify-center opacity-10 group-hover:opacity-20 transition-opacity transform group-hover:scale-110 duration-500">
-                                    <Layers className="w-16 h-16 md:w-20 md:h-20" />
+                                 <div className="relative z-10 aspect-[1.6/1] flex items-center justify-center transition-all transform group-hover:scale-105 duration-500 overflow-hidden rounded-2xl mb-6 bg-zinc-50/50 border border-zinc-50 shadow-inner">
+                                    {getCategoryImage(cat.name) ? (
+                                      <img src={getCategoryImage(cat.name)!} className="w-full h-full object-cover" alt={cat.name} />
+                                    ) : (
+                                      <Layers className="w-16 h-16 md:w-20 md:h-20 text-zinc-100 group-hover:text-zinc-200" />
+                                    )}
                                  </div>
-                                 <div className="relative z-10">
-                                    <h3 className="text-xl md:text-2xl font-black italic uppercase tracking-tighter text-zinc-950 mb-1">{cat.name}</h3>
-                                    <p className="text-[8px] md:text-[10px] font-black text-zinc-300 uppercase tracking-[0.3em] italic">FLEET GROUP</p>
-                                 </div>
-                                 <div className="absolute bottom-6 right-6 md:bottom-8 md:right-8 w-8 h-8 md:w-10 md:h-10 bg-zinc-950 rounded-full flex items-center justify-center text-white opacity-0 group-hover:opacity-100 transition-all transform translate-y-4 group-hover:translate-y-0 shadow-lg z-20">
-                                    <ChevronRight size={16} className="md:w-[18px] md:h-[18px]" />
+                                 <div className="relative z-10 flex justify-between items-end">
+                                    <div>
+                                      <h3 className="text-xl md:text-2xl font-black italic uppercase tracking-tighter text-zinc-950 mb-1 group-hover:text-[#8cbcf3] transition-colors leading-none">{cat.name}</h3>
+                                      <p className="text-[8px] md:text-[10px] font-black text-zinc-300 uppercase tracking-[0.3em] italic leading-none">FLEET GROUP</p>
+                                    </div>
+                                    <div className="w-10 h-10 bg-zinc-950 rounded-full flex items-center justify-center text-white group-hover:bg-[#8cbcf3] transition-all transform group-hover:scale-110 shadow-lg">
+                                       <ChevronRight size={18} />
+                                    </div>
                                  </div>
                               </div>
                             ))}
@@ -3456,18 +3467,24 @@ const App: React.FC = () => {
                               <div 
                                 key={cat.id} 
                                 onClick={() => { setSerialSelectedCategory(cat.id); setSerialView('brands'); }} 
-                                className="bg-white p-6 md:p-8 rounded-[2rem] md:rounded-[2.5rem] border border-zinc-100 shadow-sm hover:shadow-xl transition-all cursor-pointer group relative overflow-hidden aspect-[4/3] flex flex-col justify-between"
+                                className="bg-white p-6 md:p-8 rounded-[2rem] md:rounded-[2.5rem] border border-zinc-100 shadow-sm hover:shadow-xl transition-all cursor-pointer group relative overflow-hidden flex flex-col"
                               >
                                  <div className="absolute inset-0 bg-gradient-to-br from-zinc-50 to-white opacity-50 z-0" />
-                                 <div className="relative z-10 flex-1 flex items-center justify-center opacity-10 group-hover:opacity-20 transition-opacity transform group-hover:scale-110 duration-500">
-                                    <Layers className="w-16 h-16 md:w-20 md:h-20" />
+                                 <div className="relative z-10 aspect-[1.6/1] flex items-center justify-center transition-all transform group-hover:scale-105 duration-500 overflow-hidden rounded-2xl mb-6 bg-zinc-50/50 border border-zinc-50 shadow-inner">
+                                    {getCategoryImage(cat.name) ? (
+                                      <img src={getCategoryImage(cat.name)!} className="w-full h-full object-cover" alt={cat.name} />
+                                    ) : (
+                                      <Layers className="w-16 h-16 md:w-20 md:h-20 text-zinc-100 group-hover:text-zinc-200" />
+                                    )}
                                  </div>
-                                 <div className="relative z-10">
-                                    <h3 className="text-xl md:text-2xl font-black italic uppercase tracking-tighter text-zinc-950 mb-1">{cat.name}</h3>
-                                    <p className="text-[8px] md:text-[10px] font-black text-zinc-300 uppercase tracking-[0.3em] italic">FLEET GROUP</p>
-                                 </div>
-                                 <div className="absolute bottom-6 right-6 md:bottom-8 md:right-8 w-8 h-8 md:w-10 md:h-10 bg-zinc-950 rounded-full flex items-center justify-center text-white opacity-0 group-hover:opacity-100 transition-all transform translate-y-4 group-hover:translate-y-0 shadow-lg z-20">
-                                    <ChevronRight size={16} className="md:w-[18px] md:h-[18px]" />
+                                 <div className="relative z-10 flex justify-between items-end">
+                                    <div>
+                                      <h3 className="text-xl md:text-2xl font-black italic uppercase tracking-tighter text-zinc-950 mb-1 group-hover:text-[#8cbcf3] transition-colors leading-none">{cat.name}</h3>
+                                      <p className="text-[8px] md:text-[10px] font-black text-zinc-300 uppercase tracking-[0.3em] italic leading-none">FLEET GROUP</p>
+                                    </div>
+                                    <div className="w-10 h-10 bg-zinc-950 rounded-full flex items-center justify-center text-white group-hover:bg-[#8cbcf3] transition-all transform group-hover:scale-110 shadow-lg">
+                                       <ChevronRight size={18} />
+                                    </div>
                                  </div>
                               </div>
                             ))}
@@ -4040,8 +4057,8 @@ const App: React.FC = () => {
                         return (
                           <div key={cat.id} className="bg-white rounded-[1.5rem] md:rounded-[2rem] border border-zinc-100 p-5 md:p-6 shadow-sm hover:shadow-xl transition-all group flex flex-col relative overflow-hidden cursor-pointer" onClick={() => setMaintenanceSelectedCategory(cat.name)}>
                             <div className="aspect-[1.5/1] bg-zinc-50/50 rounded-xl md:rounded-2xl flex items-center justify-center mb-4 md:mb-5 relative border border-zinc-50 shadow-inner group-hover:bg-white transition-all overflow-hidden">
-                              {cat.name === 'Speakers' ? (
-                                <img src="https://ksjzrlardsfqfbariypa.supabase.co/storage/v1/object/public/Logos%20&%20Others/Main%20Menu/speakers.jpeg" className="w-full h-full object-cover" alt="Speakers" />
+                              {getCategoryImage(cat.name) ? (
+                                <img src={getCategoryImage(cat.name)!} className="w-full h-full object-cover" alt={cat.name} />
                               ) : (
                                 <Layers className="text-zinc-100 group-hover:text-zinc-200 transition-colors w-10 h-10 md:w-12 md:h-12" />
                               )}
@@ -5872,8 +5889,8 @@ const App: React.FC = () => {
                         {categories.map(cat => (
                           <div key={cat.id} className="bg-white rounded-[2rem] border border-zinc-100 p-6 shadow-sm hover:shadow-xl transition-all group flex flex-col relative overflow-hidden cursor-pointer" onClick={() => setSelectedCategory(cat.name)}>
                             <div className="aspect-[1.5/1] bg-zinc-50/50 rounded-2xl flex items-center justify-center mb-5 relative border border-zinc-50 shadow-inner group-hover:bg-white transition-all overflow-hidden">
-                              {CATEGORY_IMAGES[cat.name] ? (
-                                <img src={CATEGORY_IMAGES[cat.name]} className="w-full h-full object-cover" alt={cat.name} />
+                              {getCategoryImage(cat.name) ? (
+                                <img src={getCategoryImage(cat.name)!} className="w-full h-full object-cover" alt={cat.name} />
                               ) : (
                                 <Layers className="text-zinc-100 group-hover:text-zinc-200 transition-colors" size={60} />
                               )}
