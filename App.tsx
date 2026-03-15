@@ -65,7 +65,7 @@ const CATEGORY_ORDER = [
 const CATEGORY_IMAGES: Record<string, string> = {
   "Speakers": "https://ksjzrlardsfqfbariypa.supabase.co/storage/v1/object/public/Logos%20&%20Others/Main%20Menu/speakers.jpeg",
   "Power Amps": "https://ksjzrlardsfqfbariypa.supabase.co/storage/v1/object/public/Logos%20&%20Others/Main%20Menu/Power%20Amps.png",
-  "Mixing Consoles": "https://ksjzrlardsfqfbariypa.supabase.co/storage/v1/object/public/Logos%20&%20Others/Main%20Menu/Mixing%20Con.png",
+  "Mixing Consoles": "https://ksjzrlardsfqfbariypa.supabase.co/storage/v1/object/public/Logos%20&%20Others/Main%20Menu/Mixing%20Conssoles.png",
   "Networking": "https://ksjzrlardsfqfbariypa.supabase.co/storage/v1/object/public/Logos%20&%20Others/Main%20Menu/Networking.png",
   "Microphones": "https://ksjzrlardsfqfbariypa.supabase.co/storage/v1/object/public/Logos%20&%20Others/Main%20Menu/Microphones.png",
   "Backline": "https://ksjzrlardsfqfbariypa.supabase.co/storage/v1/object/public/Logos%20&%20Others/Main%20Menu/Backline.png",
