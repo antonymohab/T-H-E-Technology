@@ -2801,7 +2801,7 @@ const App: React.FC = () => {
                                            </span>
                                         </div>
                                         
-                                        <div className="aspect-video bg-zinc-50 rounded-2xl mb-6 flex items-center justify-center p-4">
+                                        <div className="aspect-square bg-zinc-50 rounded-2xl mb-6 flex items-center justify-center p-4">
                                            {model.image_url ? (
                                               <img src={model.image_url} className="w-full h-full object-contain mix-blend-multiply" alt={model.model_name} />
                                            ) : (
@@ -3141,6 +3141,13 @@ const App: React.FC = () => {
                                                      </button>
                                                    )}
                                                  </div>
+                                                 
+                                                 {catalogSelectedModel.image_url && (
+                                                   <div className="w-full aspect-square bg-zinc-50 rounded-lg flex items-center justify-center p-2 mb-1">
+                                                     <img src={catalogSelectedModel.image_url} className="w-full h-full object-contain mix-blend-multiply" alt={catalogSelectedModel.model_name} />
+                                                   </div>
+                                                 )}
+
                                                  <div>
                                                     <p className="font-mono font-bold text-[10px] md:text-xs text-zinc-950 truncate">{item.serial_number}</p>
                                                     <p className={`text-[7px] md:text-[8px] font-black uppercase tracking-widest italic mt-0.5 md:mt-1 ${currentStatus === 'Available' ? 'text-zinc-300' : currentStatus === 'Reserved' ? 'text-amber-500' : currentStatus === 'Maintenance' ? 'text-red-500' : 'text-red-700'}`}>
@@ -4056,7 +4063,7 @@ const App: React.FC = () => {
                         if (!cat) return null;
                         return (
                           <div key={cat.id} className="bg-white rounded-[1.5rem] md:rounded-[2rem] border border-zinc-100 p-5 md:p-6 shadow-sm hover:shadow-xl transition-all group flex flex-col relative overflow-hidden cursor-pointer" onClick={() => setMaintenanceSelectedCategory(cat.name)}>
-                            <div className="aspect-[1.5/1] bg-zinc-50/50 rounded-xl md:rounded-2xl flex items-center justify-center mb-4 md:mb-5 relative border border-zinc-50 shadow-inner group-hover:bg-white transition-all overflow-hidden">
+                            <div className="aspect-square bg-zinc-50/50 rounded-xl md:rounded-2xl flex items-center justify-center mb-4 md:mb-5 relative border border-zinc-50 shadow-inner group-hover:bg-white transition-all overflow-hidden">
                               {getCategoryImage(cat.name) ? (
                                 <img src={getCategoryImage(cat.name)!} className="w-full h-full object-cover" alt={cat.name} />
                               ) : (
@@ -4318,11 +4325,11 @@ const App: React.FC = () => {
                                   <div className="flex items-start gap-3">
                                     {item.equipment_models?.image_url ? (
                                       <div className="shrink-0">
-                                        <img src={item.equipment_models.image_url} alt={item.equipment_models.model_name} className="w-10 h-10 object-contain mix-blend-multiply border border-zinc-200 rounded p-1 hover:scale-110 transition-transform" />
+                                        <img src={item.equipment_models.image_url} alt={item.equipment_models.model_name} className="w-16 h-16 object-contain mix-blend-multiply border border-zinc-200 rounded-xl p-2 hover:scale-110 transition-transform bg-white shadow-sm" />
                                       </div>
                                     ) : (
-                                      <div className="w-10 h-10 bg-zinc-100 rounded flex items-center justify-center shrink-0">
-                                        <Box size={16} className="text-zinc-400" />
+                                      <div className="w-16 h-16 bg-zinc-100 rounded-xl flex items-center justify-center shrink-0">
+                                        <Box size={24} className="text-zinc-400" />
                                       </div>
                                     )}
                                     <div className="flex flex-col">
@@ -4366,11 +4373,11 @@ const App: React.FC = () => {
                                       <div className="flex items-center gap-3">
                                         {item.equipment_models?.image_url ? (
                                           <div className="shrink-0">
-                                            <img src={item.equipment_models.image_url} alt={item.equipment_models.model_name} className="w-8 h-8 object-contain mix-blend-multiply border border-zinc-200 rounded p-0.5 hover:scale-110 transition-transform" />
+                                            <img src={item.equipment_models.image_url} alt={item.equipment_models.model_name} className="w-12 h-12 object-contain mix-blend-multiply border border-zinc-200 rounded-xl p-1.5 hover:scale-110 transition-transform bg-white shadow-sm" />
                                           </div>
                                         ) : (
-                                          <div className="w-8 h-8 bg-zinc-100 rounded flex items-center justify-center shrink-0">
-                                            <Box size={14} className="text-zinc-400" />
+                                          <div className="w-12 h-12 bg-zinc-100 rounded-xl flex items-center justify-center shrink-0">
+                                            <Box size={20} className="text-zinc-400" />
                                           </div>
                                         )}
                                         <div className="flex flex-col">
@@ -4768,7 +4775,7 @@ const App: React.FC = () => {
                                   {inventory.filter(i => i.model_id === model.id && i.status === 'Available').length} AVAILABLE
                                 </div>
                               </div>
-                              <div className="aspect-video bg-zinc-50 rounded-3xl mb-6 flex items-center justify-center p-6">
+                              <div className="aspect-square bg-zinc-50 rounded-3xl mb-6 flex items-center justify-center p-6">
                                 {model.image_url ? (
                                   <img src={model.image_url} className="w-full h-full object-contain mix-blend-multiply group-hover:scale-110 transition-transform duration-500" alt="" />
                                 ) : (
@@ -4798,7 +4805,7 @@ const App: React.FC = () => {
                               onClick={() => setAddingEquipmentCategory(category.name)}
                               className="bg-white p-6 rounded-[2rem] border border-zinc-100 shadow-sm hover:shadow-xl hover:border-[#8cbcf3] transition-all cursor-pointer group relative overflow-hidden"
                             >
-                              <div className="aspect-video bg-zinc-50 rounded-2xl mb-6 flex items-center justify-center p-4 overflow-hidden">
+                              <div className="aspect-square bg-zinc-50 rounded-2xl mb-6 flex items-center justify-center p-4 overflow-hidden">
                                 <Box size={40} className="text-zinc-200 group-hover:scale-110 transition-transform" />
                               </div>
                               <div className="flex items-center justify-between">
@@ -4851,7 +4858,7 @@ const App: React.FC = () => {
                                   {inventory.filter(i => i.model_id === model.id && i.status === 'Available').length} AVAILABLE
                                 </div>
                               </div>
-                              <div className="aspect-video bg-zinc-50 rounded-2xl md:rounded-3xl mb-4 md:mb-6 flex items-center justify-center p-4 md:p-6">
+                              <div className="aspect-square bg-zinc-50 rounded-2xl md:rounded-3xl mb-4 md:mb-6 flex items-center justify-center p-4 md:p-6">
                                 {model.image_url ? (
                                   <img src={model.image_url} className="w-full h-full object-contain mix-blend-multiply group-hover:scale-110 transition-transform duration-500" alt="" />
                                 ) : (
@@ -4938,7 +4945,7 @@ const App: React.FC = () => {
                                 </div>
                               </div>
 
-                              <div className="aspect-video bg-zinc-50 rounded-xl mb-4 flex items-center justify-center p-4">
+                              <div className="aspect-square bg-zinc-50 rounded-xl mb-4 flex items-center justify-center p-4">
                                 {model.image_url ? (
                                   <img src={model.image_url} className="w-full h-full object-contain mix-blend-multiply" alt={model.model_name} />
                                 ) : (
@@ -4997,7 +5004,7 @@ const App: React.FC = () => {
                                     }}
                                     className={`w-full py-2.5 md:py-3 rounded-xl font-black text-[8px] md:text-[9px] uppercase tracking-widest transition-all italic flex items-center justify-center gap-2 ${currentQty === 0 ? 'bg-red-500 text-white' : 'bg-red-50 text-red-500 hover:bg-red-100'}`}
                                   >
-                                    <Trash2 size={12} className="md:w-3.5 md:h-3.5" /> {currentQty === 0 ? 'REMOVED' : 'REMOVE FROM ORDER'}
+                                    <Trash2 size={12} className="md:w-3.5 md:h-3.5" /> {currentQty === 0 ? 'REMOVED' : 'DELETE ORDER'}
                                   </button>
                                 </div>
                               ) : (
@@ -5403,6 +5410,16 @@ const App: React.FC = () => {
                             <Download size={16} /> DOWNLOAD MANIFEST PDF
                           </button>
                           <button 
+                            onClick={() => {
+                              const booking = selectedRequest.bookings?.[0];
+                              if (booking) handleEditOrder(booking);
+                            }}
+                            disabled={syncing}
+                            className="bg-[#e14242] text-white px-8 py-4 rounded-xl font-black text-[10px] uppercase tracking-widest hover:bg-red-600 transition-all shadow-lg italic flex items-center justify-center gap-3 disabled:opacity-50"
+                          >
+                            <Edit3 size={16} /> EDIT / MODIFY
+                          </button>
+                          <button 
                             onClick={async () => {
                               handleDeleteEvent(selectedRequest.id);
                               setSelectedRequest(null);
@@ -5665,6 +5682,16 @@ const App: React.FC = () => {
                             <Download size={16} /> DOWNLOAD MANIFEST PDF
                           </button>
                           <button 
+                            onClick={() => {
+                              const booking = selectedRequest.bookings?.[0];
+                              if (booking) handleEditOrder(booking);
+                            }}
+                            disabled={syncing}
+                            className="bg-[#e14242] text-white px-8 py-4 rounded-xl font-black text-[10px] uppercase tracking-widest hover:bg-red-600 transition-all shadow-lg italic flex items-center justify-center gap-3 disabled:opacity-50"
+                          >
+                            <Edit3 size={16} /> EDIT / MODIFY
+                          </button>
+                          <button 
                             onClick={async () => {
                               handleDeleteEvent(selectedRequest.id);
                               setSelectedRequest(null);
@@ -5861,7 +5888,7 @@ const App: React.FC = () => {
                               setSelectedModel(model);
                               setGlobalSearch('');
                            }} className="bg-white rounded-[2rem] border border-zinc-100 shadow-sm hover:shadow-xl transition-all group flex flex-col relative overflow-hidden text-left cursor-pointer border-b-[6px] border-b-zinc-50 hover:border-b-[#8cbcf3]">
-                              <div className="aspect-[1.5/1] bg-white flex items-center justify-center p-6 relative group-hover:bg-zinc-50/20 transition-all">
+                              <div className="aspect-square bg-white flex items-center justify-center p-6 relative group-hover:bg-zinc-50/20 transition-all">
                                  {model?.image_url ? <img src={model.image_url} className="w-full h-full object-contain group-hover:scale-105 transition-transform" alt={model?.model_name} /> : <Box className="text-zinc-100" size={60} />}
                                  <div className="absolute top-4 right-4 flex flex-col gap-1 items-end">
                                    <div className="px-3 py-1.5 bg-emerald-500 text-white text-[8px] font-black uppercase tracking-widest rounded-lg shadow-lg border border-emerald-400">{inventory.filter(i => i.model_id === model.id).length} IN STOCK</div>
@@ -5888,7 +5915,7 @@ const App: React.FC = () => {
                       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
                         {categories.map(cat => (
                           <div key={cat.id} className="bg-white rounded-[2rem] border border-zinc-100 p-6 shadow-sm hover:shadow-xl transition-all group flex flex-col relative overflow-hidden cursor-pointer" onClick={() => setSelectedCategory(cat.name)}>
-                            <div className="aspect-[1.5/1] bg-zinc-50/50 rounded-2xl flex items-center justify-center mb-5 relative border border-zinc-50 shadow-inner group-hover:bg-white transition-all overflow-hidden">
+                            <div className="aspect-square bg-zinc-50/50 rounded-2xl flex items-center justify-center mb-5 relative border border-zinc-50 shadow-inner group-hover:bg-white transition-all overflow-hidden">
                               {getCategoryImage(cat.name) ? (
                                 <img src={getCategoryImage(cat.name)!} className="w-full h-full object-cover" alt={cat.name} />
                               ) : (
@@ -5923,7 +5950,7 @@ const App: React.FC = () => {
                          <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-6">
                             {modelsInCategory.map(model => (
                               <div key={model.model_name} onClick={() => setSelectedModel(model)} className="bg-white rounded-[2rem] border border-zinc-100 shadow-sm hover:shadow-xl transition-all group flex flex-col relative overflow-hidden text-left cursor-pointer border-b-[6px] border-b-zinc-50 hover:border-b-[#8cbcf3]">
-                                 <div className="aspect-[1.5/1] bg-white flex items-center justify-center p-6 relative group-hover:bg-zinc-50/20 transition-all">
+                                 <div className="aspect-square bg-white flex items-center justify-center p-6 relative group-hover:bg-zinc-50/20 transition-all">
                                     {model?.image_url ? <img src={model.image_url} className="w-full h-full object-contain group-hover:scale-105 transition-transform" alt={model?.model_name} /> : <Box className="text-zinc-100" size={60} />}
                                    <div className="absolute top-4 right-4 flex flex-col gap-1 items-end">
                                    <div className="px-3 py-1.5 bg-emerald-500 text-white text-[8px] font-black uppercase tracking-widest rounded-lg shadow-lg border border-emerald-400">{inventory.filter(i => i.model_id === model.id).length} IN STOCK</div>
@@ -6041,34 +6068,36 @@ const App: React.FC = () => {
                                   <div className="flex items-center justify-between border-b-2 border-zinc-50 pb-4">
                                     <h4 className="text-sm md:text-base font-black uppercase italic tracking-widest text-zinc-950">SERIALS DIRECTORY</h4>
                                     <div className="flex flex-wrap items-center gap-2">
-                                      {!serialStatusUpdateConfirm ? (
-                                        <>
-                                          {isSerialSelectionMode && (
-                                            <>
-                                              <button onClick={() => setSerialStatusUpdateConfirm('Maintenance')} disabled={selectedSerialsForUpdate.length === 0} className="px-4 py-2.5 bg-amber-50 text-amber-600 rounded-xl text-[10px] font-black uppercase tracking-widest hover:bg-amber-100 transition-colors disabled:opacity-50 shadow-sm">MAINTENANCE</button>
-                                              <button onClick={() => setSerialStatusUpdateConfirm('Broken')} disabled={selectedSerialsForUpdate.length === 0} className="px-4 py-2.5 bg-zinc-100 text-zinc-500 rounded-xl text-[10px] font-black uppercase tracking-widest hover:bg-zinc-200 transition-colors disabled:opacity-50 shadow-sm">BROKEN</button>
-                                            </>
-                                          )}
-                                          <button 
-                                            onClick={() => {
-                                              if (isSerialSelectionMode) {
-                                                setIsSerialSelectionMode(false);
-                                                setSelectedSerialsForUpdate([]);
-                                              } else {
-                                                setIsSerialSelectionMode(true);
-                                              }
-                                            }} 
-                                            className={`px-6 py-2.5 rounded-xl text-[10px] font-black uppercase tracking-widest transition-all shadow-sm ${isSerialSelectionMode ? 'bg-red-50 text-red-500 hover:bg-red-100' : 'bg-white border border-[#8cbcf3] text-[#8cbcf3] hover:bg-[#8cbcf3] hover:text-white'}`}
-                                          >
-                                            {isSerialSelectionMode ? 'CANCEL' : 'SELECT'}
-                                          </button>
-                                        </>
-                                      ) : (
-                                        <>
-                                          <span className="text-[10px] font-black text-zinc-400 uppercase tracking-widest italic mr-2">ARE YOU SURE?</span>
-                                          <button onClick={handleConfirmStatusUpdate} className="px-6 py-2.5 bg-emerald-50 text-emerald-600 rounded-xl text-[10px] font-black uppercase tracking-widest hover:bg-emerald-100 transition-colors shadow-sm">YES</button>
-                                          <button onClick={() => setSerialStatusUpdateConfirm(null)} className="px-6 py-2.5 bg-zinc-50 text-zinc-600 rounded-xl text-[10px] font-black uppercase tracking-widest hover:bg-zinc-100 transition-colors shadow-sm">NO</button>
-                                        </>
+                                      {(currentUser?.role === 'admin' || currentUser?.role === 'technician') && (
+                                        !serialStatusUpdateConfirm ? (
+                                          <>
+                                            {isSerialSelectionMode && (
+                                              <>
+                                                <button onClick={() => setSerialStatusUpdateConfirm('Maintenance')} disabled={selectedSerialsForUpdate.length === 0} className="px-4 py-2.5 bg-amber-50 text-amber-600 rounded-xl text-[10px] font-black uppercase tracking-widest hover:bg-amber-100 transition-colors disabled:opacity-50 shadow-sm">MAINTENANCE</button>
+                                                <button onClick={() => setSerialStatusUpdateConfirm('Broken')} disabled={selectedSerialsForUpdate.length === 0} className="px-4 py-2.5 bg-zinc-100 text-zinc-500 rounded-xl text-[10px] font-black uppercase tracking-widest hover:bg-zinc-200 transition-colors disabled:opacity-50 shadow-sm">BROKEN</button>
+                                              </>
+                                            )}
+                                            <button 
+                                              onClick={() => {
+                                                if (isSerialSelectionMode) {
+                                                  setIsSerialSelectionMode(false);
+                                                  setSelectedSerialsForUpdate([]);
+                                                } else {
+                                                  setIsSerialSelectionMode(true);
+                                                }
+                                              }} 
+                                              className={`px-6 py-2.5 rounded-xl text-[10px] font-black uppercase tracking-widest transition-all shadow-sm ${isSerialSelectionMode ? 'bg-red-50 text-red-500 hover:bg-red-100' : 'bg-white border border-[#8cbcf3] text-[#8cbcf3] hover:bg-[#8cbcf3] hover:text-white'}`}
+                                            >
+                                              {isSerialSelectionMode ? 'CANCEL' : 'SELECT'}
+                                            </button>
+                                          </>
+                                        ) : (
+                                          <>
+                                            <span className="text-[10px] font-black text-zinc-400 uppercase tracking-widest italic mr-2">ARE YOU SURE?</span>
+                                            <button onClick={handleConfirmStatusUpdate} className="px-6 py-2.5 bg-emerald-50 text-emerald-600 rounded-xl text-[10px] font-black uppercase tracking-widest hover:bg-emerald-100 transition-colors shadow-sm">YES</button>
+                                            <button onClick={() => setSerialStatusUpdateConfirm(null)} className="px-6 py-2.5 bg-zinc-50 text-zinc-600 rounded-xl text-[10px] font-black uppercase tracking-widest hover:bg-zinc-100 transition-colors shadow-sm">NO</button>
+                                          </>
+                                        )
                                       )}
                                     </div>
                                   </div>
