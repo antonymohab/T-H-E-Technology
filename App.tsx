@@ -252,6 +252,13 @@ const App: React.FC = () => {
   const [serialStatusUpdateConfirm, setSerialStatusUpdateConfirm] = useState<'Maintenance' | 'Broken' | null>(null);
   const [calendarDate, setCalendarDate] = useState(new Date());
   const [calendarView, setCalendarView] = useState<'month' | 'week' | 'day'>('month');
+  const [allEventsSearchQuery, setAllEventsSearchQuery] = useState('');
+  const [allEventsEngineerFilter, setAllEventsEngineerFilter] = useState('');
+  const [allEventsDateFilter, setAllEventsDateFilter] = useState('');
+  const [allEventsEndDateFilter, setAllEventsEndDateFilter] = useState('');
+  const [allEventsStatusFilter, setAllEventsStatusFilter] = useState('');
+  const [calendarSearchQuery, setCalendarSearchQuery] = useState('');
+  const [selectedCalendarEvent, setSelectedCalendarEvent] = useState<any | null>(null);
 
   // Helper to ensure bucket exists or find a valid one
   const ensureBucketExists = async (preferredName: string): Promise<string> => {
@@ -910,6 +917,7 @@ const App: React.FC = () => {
         categories[catName].models[modelKey] = {
           name: modelName,
           brand: brandName,
+          modelId: item?.model_id,
           qty: 0,
           items: [],
           imageUrl: item?.equipment_models?.image_url
@@ -947,6 +955,37 @@ const App: React.FC = () => {
     setTimeout(() => {
       setIsAddingToTruck(false);
     }, 1000);
+  };
+
+  const addToCartByModel = (modelId: string) => {
+    // Find available units for this model that are not in cart
+    const modelUnits = inventory.filter(i => i.model_id === modelId);
+    const inCartIds = new Set(cart.map(c => c.id));
+    
+    const availableUnits = modelUnits
+      .filter(unit => 
+        unit.status === 'Available' && 
+        !unavailableItemIds.has(unit.id) && 
+        !inCartIds.has(unit.id)
+      )
+      .sort((a, b) => a.serial_number.localeCompare(b.serial_number, undefined, { numeric: true, sensitivity: 'base' }));
+
+    if (availableUnits.length > 0) {
+      setCart(prev => [...prev, availableUnits[0]]);
+    } else {
+      notify("No more available units for this model.", "info");
+    }
+  };
+
+  const removeFromCartByModel = (modelId: string) => {
+    setCart(prev => {
+      // Find the last item of this model in the cart
+      const modelItems = prev.filter(item => item.model_id === modelId);
+      if (modelItems.length === 0) return prev;
+      
+      const lastItem = modelItems[modelItems.length - 1];
+      return prev.filter(item => item.id !== lastItem.id);
+    });
   };
 
   const submitEventManifest = async () => {
@@ -2122,6 +2161,16 @@ const App: React.FC = () => {
                   <span className="flex-1 text-left">CREATE ORDER</span>
                   <MoreVertical size={14} className={`opacity-0 group-hover:opacity-100 transition-opacity ${view === 'create-order' ? 'text-zinc-500' : 'text-zinc-300'}`} />
                 </button>
+                <button onClick={() => { setView('calendar'); setIsSidebarOpen(false); }} className={`w-full flex items-center px-6 py-4 rounded-xl text-[10px] font-black uppercase tracking-widest transition-all group ${view === 'calendar' ? 'bg-zinc-950 text-white shadow-lg' : 'text-zinc-400 hover:bg-zinc-50'}`}>
+                  <Calendar size={18} className="mr-4" /> 
+                  <span className="flex-1 text-left">CALENDAR</span>
+                  <MoreVertical size={14} className={`opacity-0 group-hover:opacity-100 transition-opacity ${view === 'calendar' ? 'text-zinc-500' : 'text-zinc-300'}`} />
+                </button>
+                <button onClick={() => { setView('all-events'); setIsSidebarOpen(false); }} className={`w-full flex items-center px-6 py-4 rounded-xl text-[10px] font-black uppercase tracking-widest transition-all group ${view === 'all-events' ? 'bg-zinc-950 text-white shadow-lg' : 'text-zinc-400 hover:bg-zinc-50'}`}>
+                  <ClipboardList size={18} className="mr-4" /> 
+                  <span className="flex-1 text-left">ALL EVENTS</span>
+                  <MoreVertical size={14} className={`opacity-0 group-hover:opacity-100 transition-opacity ${view === 'all-events' ? 'text-zinc-500' : 'text-zinc-300'}`} />
+                </button>
                 <button onClick={() => { setView('accounts-management'); setIsSidebarOpen(false); }} className={`w-full flex items-center px-6 py-4 rounded-xl text-[10px] font-black uppercase tracking-widest transition-all group ${view === 'accounts-management' ? 'bg-zinc-950 text-white shadow-lg' : 'text-zinc-400 hover:bg-zinc-50'}`}>
                   <Users size={18} className="mr-4" /> 
                   <span className="flex-1 text-left">ACCOUNTS</span>
@@ -2384,8 +2433,8 @@ const App: React.FC = () => {
                 return (
                   <div className="space-y-8 animate-in fade-in slide-in-from-bottom-2 duration-500 text-left">
                     <button 
-                      onClick={() => { setView(currentUser?.role === 'admin' ? 'admin' : 'history'); setViewingEventId(null); }}
-                      className="flex items-center gap-2 text-[10px] font-black text-zinc-400 uppercase tracking-widest hover:text-zinc-950 transition-colors italic"
+                      onClick={() => { setView(currentUser?.role === 'admin' ? 'all-events' : 'history'); setViewingEventId(null); }}
+                      className="flex items-center gap-2 text-[10px] font-black text-zinc-400 uppercase tracking-[0.3em] hover:text-zinc-950 transition-colors italic"
                     >
                       <ArrowLeft size={14} /> BACK TO ORDERS
                     </button>
@@ -2398,21 +2447,21 @@ const App: React.FC = () => {
                               event.status === 'approved' ? 'bg-emerald-50 text-emerald-600' : 
                               event.status === 'pending_approval' ? 'bg-amber-50 text-amber-600' : 'bg-zinc-50 text-zinc-400'
                             }`}>
-                              {event.status?.replace('_', ' ')}
+                              {event.status === 'pending_approval' ? 'PENDING APPROVAL' : event.status?.replace('_', ' ').toUpperCase()}
                             </span>
                             <span className="text-[10px] font-black text-zinc-300 uppercase tracking-widest italic">
                               ORDER #{booking.id.slice(0, 8).toUpperCase()}
                             </span>
                           </div>
-                          <h1 className="text-3xl md:text-5xl font-black italic uppercase tracking-tighter text-zinc-950 leading-[0.85]">
+                          <h1 className="text-5xl md:text-7xl font-black italic uppercase tracking-tighter text-zinc-950 leading-[0.85]">
                             {event.event_name}
                           </h1>
                         </div>
                         <button 
                           onClick={() => handleDownloadPDF(booking, event)}
-                          className="bg-zinc-950 text-white px-6 py-3 rounded-xl font-black text-[9px] uppercase tracking-widest hover:bg-[#8cbcf3] transition-all shadow-lg flex items-center gap-3 italic active:scale-95"
+                          className="bg-zinc-950 text-white px-8 py-4 rounded-2xl font-black text-[11px] uppercase tracking-widest hover:bg-[#8cbcf3] transition-all shadow-xl flex items-center gap-3 italic active:scale-95"
                         >
-                          <Download size={16} /> DOWNLOAD MANIFEST PDF
+                          <Download size={18} /> DOWNLOAD MANIFEST PDF
                         </button>
                       </div>
 
@@ -2446,16 +2495,16 @@ const App: React.FC = () => {
                       </div>
                     </div>
 
-                    <div className="space-y-12">
+                    <div className="space-y-16 mt-16">
                       <div className="flex items-center gap-6">
                         <h3 className="text-3xl font-black italic uppercase tracking-tighter text-zinc-950">REQUESTED EQUIPMENT</h3>
                         <div className="h-px flex-1 bg-zinc-100"></div>
                       </div>
                       
                       {Object.entries(itemsByCategory || {}).sort((a: any, b: any) => getCategoryOrder(a[0]) - getCategoryOrder(b[0])).map(([category, items]: [string, any]) => (
-                        <div key={category} className="space-y-8">
-                          <h4 className="text-2xl font-black italic uppercase tracking-widest text-zinc-950 border-b-2 border-zinc-950 inline-block pb-1">{category}</h4>
-                          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-2 xl:grid-cols-2 gap-8">
+                        <div key={category} className="space-y-10">
+                          <h4 className="text-2xl font-black italic uppercase tracking-widest text-zinc-950 border-b-4 border-zinc-950 inline-block pb-2">{category}</h4>
+                          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
                             {Object.values(items.reduce((acc: any, item: any) => {
                               const modelName = item.inventory_items?.equipment_models?.model_name;
                               if (!acc[modelName]) {
@@ -2471,7 +2520,7 @@ const App: React.FC = () => {
                             }, {})).map((group: any, idx: number) => (
                               <div 
                                 key={idx} 
-                                className="bg-white p-8 rounded-[2.5rem] border border-zinc-100 flex items-center gap-8 shadow-sm hover:shadow-xl transition-all group/item cursor-pointer"
+                                className="bg-white p-8 rounded-[3rem] border border-zinc-100 flex items-center gap-8 shadow-sm hover:shadow-2xl transition-all group/item cursor-pointer"
                                 onClick={() => {
                                   const model = models.find(m => m.id === group.inventory_items?.equipment_models?.id);
                                   if (model) {
@@ -2484,7 +2533,7 @@ const App: React.FC = () => {
                                   }
                                 }}
                               >
-                                <div className="w-32 h-32 bg-zinc-50 rounded-3xl flex items-center justify-center border border-zinc-100 shrink-0 group-hover/item:bg-white transition-colors overflow-hidden">
+                                <div className="w-32 h-32 bg-zinc-50 rounded-[2rem] flex items-center justify-center border border-zinc-100 shrink-0 group-hover/item:bg-white transition-colors overflow-hidden">
                                   {group.inventory_items?.equipment_models?.image_url ? (
                                     <img src={group.inventory_items.equipment_models.image_url} className="w-full h-full object-contain p-4" alt="" />
                                   ) : (
@@ -2492,22 +2541,22 @@ const App: React.FC = () => {
                                   )}
                                 </div>
                                 <div className="flex-1 min-w-0">
-                                  <p className="text-xs font-black text-[#8cbcf3] uppercase tracking-widest italic mb-1 truncate">
+                                  <p className="text-[10px] font-black text-[#8cbcf3] uppercase tracking-widest italic mb-2 truncate">
                                     {group.inventory_items?.equipment_models?.brands?.name}
                                   </p>
-                                  <div className="flex items-center gap-4 mb-4">
+                                  <div className="flex items-center gap-4 mb-6">
                                     <h5 className="text-3xl font-black italic uppercase tracking-tighter text-zinc-950 truncate leading-none">
                                       {group.inventory_items?.equipment_models?.model_name}
                                     </h5>
                                     {group.qty > 1 && (
-                                      <span className="text-3xl font-black text-blue-500 italic">x{group.qty}</span>
+                                      <span className="text-3xl font-black text-[#8cbcf3] italic">x{group.qty}</span>
                                     )}
                                   </div>
                                   <div className="flex flex-wrap gap-2">
                                     {group.serials.sort((a: string, b: string) => a.localeCompare(b, undefined, { numeric: true, sensitivity: 'base' })).map((sn: string, i: number) => (
-                                      <div key={i} className="flex items-center gap-2 bg-zinc-50 px-3 py-1.5 rounded-xl border border-zinc-100 group-hover/item:border-[#8cbcf3]/30 transition-colors">
+                                      <div key={i} className="flex items-center gap-2 bg-zinc-50 px-3 py-2 rounded-xl border border-zinc-100 group-hover/item:border-[#8cbcf3]/30 transition-colors">
                                         <Hash size={12} className="text-zinc-300" />
-                                        <span className="text-xs font-black text-zinc-600 uppercase italic leading-none">
+                                        <span className="text-[9px] font-black text-zinc-600 uppercase italic leading-none">
                                           {sn}
                                         </span>
                                       </div>
@@ -3820,6 +3869,157 @@ const App: React.FC = () => {
               </div>
             )}
 
+            {view === 'all-events' && currentUser?.role === 'admin' && (
+              <div className="space-y-8 animate-in fade-in slide-in-from-bottom-2 duration-500 text-left">
+                <div className="flex flex-col gap-8">
+                  <div className="flex flex-col gap-2">
+                    <h3 className="text-5xl font-black italic tracking-tighter text-zinc-950 uppercase leading-none">ALL EVENTS</h3>
+                    <p className="text-[10px] font-black text-zinc-400 uppercase tracking-[0.4em] italic leading-none">COMPLETE EVENT HISTORY & SCHEDULE</p>
+                  </div>
+                  
+                  <div className="flex flex-wrap items-center gap-4">
+                    <div className="relative group min-w-[320px] flex-1">
+                      <Search className="absolute left-5 top-1/2 -translate-y-1/2 text-zinc-400 group-focus-within:text-[#8cbcf3] transition-colors" size={18} />
+                      <input 
+                        type="text" 
+                        placeholder="SEARCH BY EVENT OR LOCATION..."
+                        value={allEventsSearchQuery}
+                        onChange={e => setAllEventsSearchQuery(e.target.value)}
+                        className="w-full bg-white border border-zinc-100 rounded-[1.5rem] py-5 pl-14 pr-6 text-[11px] font-black uppercase tracking-widest focus:outline-none focus:border-[#8cbcf3] focus:ring-8 focus:ring-blue-500/5 transition-all shadow-sm"
+                      />
+                    </div>
+
+                    <div className="flex items-center gap-3">
+                      <select 
+                        value={allEventsEngineerFilter}
+                        onChange={e => setAllEventsEngineerFilter(e.target.value)}
+                        className="bg-white border border-zinc-100 rounded-[1.5rem] py-5 px-8 text-[11px] font-black uppercase tracking-widest focus:outline-none focus:border-[#8cbcf3] shadow-sm appearance-none cursor-pointer min-w-[180px] text-center"
+                      >
+                        <option value="">ALL ENGINEERS</option>
+                        {Array.from(new Set(eventsList.flatMap(e => e.bookings?.map((b: any) => b.creator?.full_name).filter(Boolean) || []))).sort().map(eng => (
+                          <option key={eng} value={eng}>{eng}</option>
+                        ))}
+                      </select>
+
+                      <div className="flex items-center gap-2 bg-white border border-zinc-100 rounded-[1.5rem] px-4 shadow-sm">
+                        <input 
+                          type="date" 
+                          value={allEventsDateFilter}
+                          onChange={e => setAllEventsDateFilter(e.target.value)}
+                          className="py-5 bg-transparent text-[11px] font-black uppercase tracking-widest focus:outline-none cursor-pointer"
+                        />
+                        <span className="text-zinc-300 font-black">-</span>
+                        <input 
+                          type="date" 
+                          value={allEventsEndDateFilter}
+                          onChange={e => setAllEventsEndDateFilter(e.target.value)}
+                          className="py-5 bg-transparent text-[11px] font-black uppercase tracking-widest focus:outline-none cursor-pointer"
+                        />
+                      </div>
+
+                      <select 
+                        value={allEventsStatusFilter}
+                        onChange={e => setAllEventsStatusFilter(e.target.value)}
+                        className="bg-white border border-zinc-100 rounded-[1.5rem] py-5 px-8 text-[11px] font-black uppercase tracking-widest focus:outline-none focus:border-[#8cbcf3] shadow-sm appearance-none cursor-pointer min-w-[160px] text-center"
+                      >
+                        <option value="">ALL STATUS</option>
+                        <option value="approved">APPROVED</option>
+                        <option value="pending_approval">PENDING</option>
+                        <option value="rejected">REJECTED</option>
+                      </select>
+                    </div>
+                  </div>
+                </div>
+
+                <div className="bg-white rounded-[3rem] border border-zinc-100 overflow-hidden shadow-[0_20px_50px_-10px_rgba(0,0,0,0.03)]">
+                  <div className="overflow-x-auto">
+                    <table className="w-full text-left border-collapse">
+                      <thead>
+                        <tr className="bg-zinc-50/30 border-b border-zinc-100">
+                          <th className="px-10 py-8 text-[10px] font-black text-zinc-400 uppercase tracking-[0.3em] italic">EVENT NAME</th>
+                          <th className="px-10 py-8 text-[10px] font-black text-zinc-400 uppercase tracking-[0.3em] italic">DATES</th>
+                          <th className="px-10 py-8 text-[10px] font-black text-zinc-400 uppercase tracking-[0.3em] italic">LOCATION</th>
+                          <th className="px-10 py-8 text-[10px] font-black text-zinc-400 uppercase tracking-[0.3em] italic">ENGINEER</th>
+                          <th className="px-10 py-8 text-[10px] font-black text-zinc-400 uppercase tracking-[0.3em] italic text-right">STATUS</th>
+                        </tr>
+                      </thead>
+                      <tbody className="divide-y divide-zinc-50">
+                        {eventsList
+                          .filter(event => {
+                            const matchesSearch = event.event_name.toLowerCase().includes(allEventsSearchQuery.toLowerCase()) || 
+                                                  (event.location || '').toLowerCase().includes(allEventsSearchQuery.toLowerCase());
+                            const matchesEngineer = !allEventsEngineerFilter || event.bookings?.some((b: any) => b.creator?.full_name === allEventsEngineerFilter);
+                            
+                            // Range filtering
+                            const eventDate = new Date(event.start_date);
+                            const fromDate = allEventsDateFilter ? new Date(allEventsDateFilter) : null;
+                            const toDate = allEventsEndDateFilter ? new Date(allEventsEndDateFilter) : null;
+                            
+                            let matchesDate = true;
+                            if (fromDate && toDate) {
+                              matchesDate = eventDate >= fromDate && eventDate <= toDate;
+                            } else if (fromDate) {
+                              matchesDate = eventDate >= fromDate;
+                            } else if (toDate) {
+                              matchesDate = eventDate <= toDate;
+                            }
+
+                            const matchesStatus = !allEventsStatusFilter || event.status === allEventsStatusFilter;
+                            return matchesSearch && matchesEngineer && matchesDate && matchesStatus;
+                          })
+                          .sort((a, b) => new Date(b.start_date).getTime() - new Date(a.start_date).getTime())
+                          .map((event) => {
+                            const engineer = event.bookings?.[0]?.creator?.full_name || 'N/A';
+                            return (
+                              <tr 
+                                key={event.id} 
+                                onClick={() => { setViewingEventId(event.id); setView('view-order-details'); }}
+                                className="hover:bg-zinc-50/50 transition-all group cursor-pointer"
+                              >
+                                <td className="px-10 py-8">
+                                  <div className="flex flex-col gap-1">
+                                    <span className="text-base font-black italic uppercase tracking-tight text-[#8cbcf3] group-hover:text-zinc-950 transition-colors">{event.event_name}</span>
+                                    <span className="text-[9px] font-bold text-zinc-300 uppercase tracking-widest">#{event.id.substring(0, 8).toUpperCase()}</span>
+                                  </div>
+                                </td>
+                                <td className="px-10 py-8">
+                                  <div className="flex flex-col gap-1">
+                                    <span className="text-[11px] font-black text-zinc-950 uppercase tracking-widest">FROM: {event.start_date}</span>
+                                    <span className="text-[11px] font-black text-zinc-400 uppercase tracking-widest">TO: {event.end_date || 'TBA'}</span>
+                                  </div>
+                                </td>
+                                <td className="px-10 py-8">
+                                  <div className="flex items-center gap-3 text-[11px] font-black text-zinc-600 uppercase tracking-widest">
+                                    <MapPin size={14} className="text-zinc-300" />
+                                    {event.location || 'TBA'}
+                                  </div>
+                                </td>
+                                <td className="px-10 py-8">
+                                  <div className="flex items-center gap-3 text-[11px] font-black text-zinc-600 uppercase tracking-widest">
+                                    <UserIcon size={14} className="text-zinc-300" />
+                                    {engineer}
+                                  </div>
+                                </td>
+                                <td className="px-10 py-8 text-right">
+                                  <span className={`inline-flex px-4 py-1.5 rounded-xl text-[10px] font-black uppercase tracking-widest italic ${
+                                    event.status === 'approved' ? 'bg-emerald-50 text-emerald-600' :
+                                    event.status === 'pending_approval' ? 'bg-amber-50 text-amber-600' :
+                                    event.status === 'rejected' ? 'bg-red-50 text-red-600' :
+                                    'bg-zinc-50 text-zinc-400'
+                                  }`}>
+                                    {event.status === 'pending_approval' ? 'PENDING' : event.status.toUpperCase()}
+                                  </span>
+                                </td>
+                              </tr>
+                            );
+                          })}
+                      </tbody>
+                    </table>
+                  </div>
+                </div>
+              </div>
+            )}
+
             {view === 'accounts-management' && currentUser?.role === 'admin' && (
               <div className="space-y-8 animate-in fade-in slide-in-from-bottom-2 duration-500 text-left">
                 <div className="flex items-center justify-between">
@@ -5004,7 +5204,7 @@ const App: React.FC = () => {
                                     }}
                                     className={`w-full py-2.5 md:py-3 rounded-xl font-black text-[8px] md:text-[9px] uppercase tracking-widest transition-all italic flex items-center justify-center gap-2 ${currentQty === 0 ? 'bg-red-500 text-white' : 'bg-red-50 text-red-500 hover:bg-red-100'}`}
                                   >
-                                    <Trash2 size={12} className="md:w-3.5 md:h-3.5" /> {currentQty === 0 ? 'REMOVED' : 'DELETE ORDER'}
+                                    <Trash2 size={12} className="md:w-3.5 md:h-3.5" /> {currentQty === 0 ? 'REMOVED' : 'Remove All From Order'}
                                   </button>
                                 </div>
                               ) : (
@@ -5427,7 +5627,7 @@ const App: React.FC = () => {
                             disabled={syncing}
                             className="bg-red-50 text-red-600 hover:bg-red-600 hover:text-white px-8 py-4 rounded-xl font-black text-[10px] uppercase tracking-widest transition-all shadow-lg italic flex items-center justify-center gap-3 disabled:opacity-50"
                           >
-                            {syncing ? <Loader2 className="animate-spin" size={16} /> : <Trash2 size={16} />} DELETE ORDER
+                            {syncing ? <Loader2 className="animate-spin" size={16} /> : <Trash2 size={16} />} REMOVE ALL FROM ORDER
                           </button>
                         </div>
                       </div>
@@ -5473,7 +5673,7 @@ const App: React.FC = () => {
                                           }, {})).map((group: any, idx: number) => (
                                             <div 
                                               key={idx} 
-                                              className="flex items-start gap-4 p-4 bg-zinc-50 rounded-2xl border border-zinc-100 group hover:border-[#8cbcf3] transition-all cursor-pointer"
+                                              className="flex items-start gap-4 p-4 bg-zinc-50 rounded-2xl border border-zinc-100 group hover:border-[#8cbcf3] transition-all cursor-pointer min-h-[110px]"
                                               onClick={() => {
                                                 const model = models.find(m => m.id === group.inventory_items?.equipment_models?.id);
                                                 if (model) {
@@ -5496,10 +5696,10 @@ const App: React.FC = () => {
                                                 <div className="flex items-center gap-2 mb-1">
                                                   <p className="text-xs font-bold text-zinc-950 truncate leading-tight">{group.inventory_items?.equipment_models?.model_name}</p>
                                                   {group.qty > 1 && (
-                                                    <span className="text-[10px] font-black text-blue-500 italic">x{group.qty}</span>
+                                                    <span className="text-[10px] font-black text-blue-500 italic ml-2">x{group.qty}</span>
                                                   )}
                                                 </div>
-                                                <div className="flex flex-wrap gap-1">
+                                                <div className="flex flex-wrap gap-1 mt-2">
                                                   {group.serials.sort((a: string, b: string) => a.localeCompare(b, undefined, { numeric: true, sensitivity: 'base' })).map((sn: string, i: number) => (
                                                     <span key={i} className="text-[8px] font-black text-zinc-400 font-mono italic bg-white px-1.5 py-0.5 rounded border border-zinc-100">
                                                       {sn}
@@ -5745,7 +5945,7 @@ const App: React.FC = () => {
                                           }, {})).map((group: any, idx: number) => (
                                             <div 
                                               key={idx} 
-                                              className="flex items-start gap-4 p-4 bg-zinc-50 rounded-2xl border border-zinc-100 group hover:border-[#8cbcf3] transition-all cursor-pointer"
+                                              className="flex items-start gap-4 p-4 bg-zinc-50 rounded-2xl border border-zinc-100 group hover:border-[#8cbcf3] transition-all cursor-pointer min-h-[110px]"
                                               onClick={() => {
                                                 const model = models.find(m => m.id === group.inventory_items?.equipment_models?.id);
                                                 if (model) {
@@ -5768,10 +5968,10 @@ const App: React.FC = () => {
                                                 <div className="flex items-center gap-2 mb-1">
                                                   <p className="text-xs font-bold text-zinc-950 truncate leading-tight">{group.inventory_items?.equipment_models?.model_name}</p>
                                                   {group.qty > 1 && (
-                                                    <span className="text-[10px] font-black text-blue-500 italic">x{group.qty}</span>
+                                                    <span className="text-[10px] font-black text-blue-500 italic ml-2">x{group.qty}</span>
                                                   )}
                                                 </div>
-                                                <div className="flex flex-wrap gap-1">
+                                                <div className="flex flex-wrap gap-1 mt-2">
                                                   {group.serials.sort((a: string, b: string) => a.localeCompare(b, undefined, { numeric: true, sensitivity: 'base' })).map((sn: string, i: number) => (
                                                     <span key={i} className="text-[8px] font-black text-zinc-400 font-mono italic bg-white px-1.5 py-0.5 rounded border border-zinc-100">
                                                       {sn}
@@ -5887,17 +6087,17 @@ const App: React.FC = () => {
                               setSelectedBrand(model.brands?.name);
                               setSelectedModel(model);
                               setGlobalSearch('');
-                           }} className="bg-white rounded-[2rem] border border-zinc-100 shadow-sm hover:shadow-xl transition-all group flex flex-col relative overflow-hidden text-left cursor-pointer border-b-[6px] border-b-zinc-50 hover:border-b-[#8cbcf3]">
-                              <div className="aspect-square bg-white flex items-center justify-center p-6 relative group-hover:bg-zinc-50/20 transition-all">
+                           }} className="bg-white rounded-[2rem] border border-zinc-100 shadow-sm hover:shadow-xl transition-all group flex flex-col relative overflow-hidden text-left cursor-pointer border-b-[6px] border-b-zinc-50 hover:border-b-[#8cbcf3] h-full">
+                              <div className="aspect-square bg-white flex items-center justify-center p-6 relative group-hover:bg-zinc-50/20 transition-all flex-none">
                                  {model?.image_url ? <img src={model.image_url} className="w-full h-full object-contain group-hover:scale-105 transition-transform" alt={model?.model_name} /> : <Box className="text-zinc-100" size={60} />}
                                  <div className="absolute top-4 right-4 flex flex-col gap-1 items-end">
                                    <div className="px-3 py-1.5 bg-emerald-500 text-white text-[8px] font-black uppercase tracking-widest rounded-lg shadow-lg border border-emerald-400">{inventory.filter(i => i.model_id === model.id).length} IN STOCK</div>
                                    <div className="px-3 py-1.5 bg-blue-500 text-white text-[8px] font-black uppercase tracking-widest rounded-lg shadow-lg border border-blue-400">{inventory.filter(i => i.model_id === model.id && i.status === 'Available').length} AVAILABLE</div>
                                  </div>
                               </div>
-                              <div className="p-5 flex flex-col">
+                              <div className="p-5 flex flex-col flex-1">
                                 <p className="text-[9px] font-black text-[#8cbcf3] uppercase tracking-[0.4em] italic mb-1 leading-none">{model?.brands?.name}</p>
-                                <h4 className="text-xl font-black italic uppercase tracking-tighter text-zinc-950 group-hover:text-[#8cbcf3] transition-colors">{model?.model_name}</h4>
+                                <h4 className="text-xl font-black italic uppercase tracking-tighter text-zinc-950 group-hover:text-[#8cbcf3] transition-colors line-clamp-2 flex-1">{model?.model_name}</h4>
                                 <div className="mt-4 flex items-center justify-between">
                                    <span className="text-[8px] font-black text-zinc-300 uppercase tracking-widest italic">TAP FOR REGISTRY</span>
                                    <div className="bg-zinc-950 text-white w-8 h-8 rounded-full flex items-center justify-center group-hover:bg-[#8cbcf3] transition-all shadow-md"><Plus size={16} /></div>
@@ -5949,17 +6149,17 @@ const App: React.FC = () => {
                       <div className="space-y-8">
                          <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-6">
                             {modelsInCategory.map(model => (
-                              <div key={model.model_name} onClick={() => setSelectedModel(model)} className="bg-white rounded-[2rem] border border-zinc-100 shadow-sm hover:shadow-xl transition-all group flex flex-col relative overflow-hidden text-left cursor-pointer border-b-[6px] border-b-zinc-50 hover:border-b-[#8cbcf3]">
-                                 <div className="aspect-square bg-white flex items-center justify-center p-6 relative group-hover:bg-zinc-50/20 transition-all">
+                              <div key={model.model_name} onClick={() => setSelectedModel(model)} className="bg-white rounded-[2rem] border border-zinc-100 shadow-sm hover:shadow-xl transition-all group flex flex-col relative overflow-hidden text-left cursor-pointer border-b-[6px] border-b-zinc-50 hover:border-b-[#8cbcf3] h-full">
+                                 <div className="aspect-square bg-white flex items-center justify-center p-6 relative group-hover:bg-zinc-50/20 transition-all flex-none">
                                     {model?.image_url ? <img src={model.image_url} className="w-full h-full object-contain group-hover:scale-105 transition-transform" alt={model?.model_name} /> : <Box className="text-zinc-100" size={60} />}
                                    <div className="absolute top-4 right-4 flex flex-col gap-1 items-end">
                                    <div className="px-3 py-1.5 bg-emerald-500 text-white text-[8px] font-black uppercase tracking-widest rounded-lg shadow-lg border border-emerald-400">{inventory.filter(i => i.model_id === model.id).length} IN STOCK</div>
                                    <div className="px-3 py-1.5 bg-blue-500 text-white text-[8px] font-black uppercase tracking-widest rounded-lg shadow-lg border border-blue-400">{inventory.filter(i => i.model_id === model.id && getSerialNumberStatus(i) === 'Available').length} AVAILABLE</div>
                                  </div>
                                  </div>
-                                 <div className="p-5 flex flex-col">
+                                 <div className="p-5 flex flex-col flex-1">
                                    <p className="text-[9px] font-black text-[#8cbcf3] uppercase tracking-[0.4em] italic mb-1 leading-none">{model?.brands?.name}</p>
-                                   <h4 className="text-xl font-black italic uppercase tracking-tighter text-zinc-950 group-hover:text-[#8cbcf3] transition-colors">{model?.model_name}</h4>
+                                   <h4 className="text-xl font-black italic uppercase tracking-tighter text-zinc-950 group-hover:text-[#8cbcf3] transition-colors line-clamp-2 flex-1">{model?.model_name}</h4>
                                    <div className="mt-4 flex items-center justify-between">
                                       <span className="text-[8px] font-black text-zinc-300 uppercase tracking-widest italic">TAP FOR REGISTRY</span>
                                       <div className="bg-zinc-950 text-white w-8 h-8 rounded-full flex items-center justify-center group-hover:bg-[#8cbcf3] transition-all shadow-md"><Plus size={16} /></div>
@@ -6278,8 +6478,8 @@ const App: React.FC = () => {
                               </div>
                               <div className="space-y-4">
                                 {categoryGroup.models.map((group: any, idx: number) => (
-                                  <div key={idx} className="bg-white rounded-3xl p-5 border border-zinc-50 flex items-start justify-between shadow-sm hover:shadow-xl transition-all group/item">
-                                    <div className="flex items-start gap-6 text-left overflow-hidden">
+                                  <div key={idx} className="bg-white rounded-3xl p-5 border border-zinc-50 flex items-center justify-between shadow-sm hover:shadow-xl transition-all group/item">
+                                    <div className="flex items-center gap-6 text-left overflow-hidden flex-1">
                                       <div className="w-20 h-20 bg-white border border-zinc-100 rounded-3xl overflow-hidden flex items-center justify-center p-3 shrink-0 shadow-sm">
                                           {group?.imageUrl ? (
                                             <img src={group.imageUrl} className="w-full h-full object-contain" alt={group?.name} />
@@ -6287,34 +6487,47 @@ const App: React.FC = () => {
                                             <Box size={24} className="text-zinc-100" />
                                           )}
                                       </div>
-                                      <div className="overflow-hidden">
-                                        <div className="flex flex-col mb-2">
-                                            <div className="flex flex-col mb-1">
-                                              <span className="text-[11px] font-black text-[#8cbcf3] italic uppercase tracking-wider leading-none">{group?.brand}</span>
-                                            </div>
-                                            <div className="flex items-center gap-2">
-                                              <h5 className="text-2xl font-black uppercase italic tracking-tighter text-zinc-950 leading-none truncate">{group?.name}</h5>
-                                              {group?.qty > 1 && (
-                                                <span className="text-lg font-black text-blue-500 italic">x{group?.qty}</span>
-                                              )}
-                                            </div>
-                                        </div>
-                                        <div className="flex flex-col gap-1 mt-2">
-                                            {group?.items?.map((it: any, i: number) => (
-                                              <span key={i} className="text-[10px] font-black text-zinc-500 uppercase italic leading-none flex items-center gap-2">
-                                                <span className="w-1.5 h-1.5 rounded-full bg-zinc-300"></span>
-                                                {it?.serial_number}
-                                              </span>
-                                            ))}
+                                      <div className="overflow-hidden flex-1">
+                                        <div className="flex flex-col">
+                                          <span className="text-[11px] font-black text-[#8cbcf3] italic uppercase tracking-wider leading-none mb-1">{group?.brand}</span>
+                                          <h5 className="text-2xl font-black uppercase italic tracking-tighter text-zinc-950 leading-none truncate mb-3">{group?.name}</h5>
+                                          
+                                          <div className="flex flex-wrap gap-x-4 gap-y-1.5">
+                                              {group?.items?.map((it: any, i: number) => (
+                                                <span key={i} className="text-[10px] font-black text-zinc-400 uppercase italic leading-none flex items-center gap-1.5">
+                                                  <span className="w-1 h-1 rounded-full bg-zinc-200"></span>
+                                                  {it?.serial_number}
+                                                </span>
+                                              ))}
+                                          </div>
                                         </div>
                                       </div>
                                     </div>
-                                    <button 
-                                      onClick={() => setCart(cart.filter(c => c?.equipment_models?.model_name !== group.name))} 
-                                      className="text-zinc-200 hover:text-red-500 transition-all p-3 hover:bg-red-50 rounded-2xl active:scale-90 shrink-0"
-                                    >
-                                      <Trash2 size={24} />
-                                    </button>
+
+                                    <div className="flex items-center gap-6 shrink-0 ml-4">
+                                      <div className="flex items-center gap-3 bg-zinc-50 px-3 py-1.5 rounded-2xl border border-zinc-100">
+                                        <button 
+                                          onClick={() => removeFromCartByModel(group.modelId)}
+                                          className="w-6 h-6 flex items-center justify-center bg-white border border-zinc-200 rounded-lg text-zinc-400 hover:text-red-500 hover:border-red-200 transition-all shadow-sm active:scale-90"
+                                        >
+                                          <Minus size={14} />
+                                        </button>
+                                        <span className="text-lg font-black text-zinc-950 italic min-w-[1.5rem] text-center">{group?.qty}</span>
+                                        <button 
+                                          onClick={() => addToCartByModel(group.modelId)}
+                                          className="w-6 h-6 flex items-center justify-center bg-zinc-950 text-white rounded-lg hover:bg-[#8cbcf3] transition-all shadow-md active:scale-90"
+                                        >
+                                          <Plus size={14} />
+                                        </button>
+                                      </div>
+
+                                      <button 
+                                        onClick={() => setCart(cart.filter(c => c?.model_id !== group.modelId))} 
+                                        className="text-zinc-200 hover:text-red-500 transition-all p-3 hover:bg-red-50 rounded-2xl active:scale-90 shrink-0"
+                                      >
+                                        <Trash2 size={24} />
+                                      </button>
+                                    </div>
                                   </div>
                                 ))}
                               </div>
@@ -6420,8 +6633,8 @@ const App: React.FC = () => {
                               </div>
                               <div className="space-y-4">
                                 {categoryGroup.models.map((group: any, idx: number) => (
-                                  <div key={idx} className="bg-white rounded-3xl p-5 border border-zinc-50 flex items-start justify-between shadow-sm hover:shadow-xl transition-all group/item">
-                                    <div className="flex items-start gap-6 text-left overflow-hidden">
+                                  <div key={idx} className="bg-white rounded-3xl p-5 border border-zinc-50 flex items-center justify-between shadow-sm hover:shadow-xl transition-all group/item">
+                                    <div className="flex items-center gap-6 text-left overflow-hidden flex-1">
                                       <div className="w-20 h-20 bg-white border border-zinc-100 rounded-3xl overflow-hidden flex items-center justify-center p-3 shrink-0 shadow-sm">
                                           {group?.imageUrl ? (
                                             <img src={group.imageUrl} className="w-full h-full object-contain" alt={group?.name} />
@@ -6429,34 +6642,47 @@ const App: React.FC = () => {
                                             <Box size={24} className="text-zinc-100" />
                                           )}
                                       </div>
-                                      <div className="overflow-hidden">
-                                        <div className="flex flex-col mb-2">
-                                            <div className="flex flex-col mb-1">
-                                              <span className="text-[11px] font-black text-[#8cbcf3] italic uppercase tracking-wider leading-none">{group?.brand}</span>
-                                            </div>
-                                            <div className="flex items-center gap-2">
-                                              <h5 className="text-2xl font-black uppercase italic tracking-tighter text-zinc-950 leading-none truncate">{group?.name}</h5>
-                                              {group?.qty > 1 && (
-                                                <span className="text-lg font-black text-blue-500 italic">x{group?.qty}</span>
-                                              )}
-                                            </div>
-                                        </div>
-                                        <div className="flex flex-col gap-1 mt-2">
-                                            {group?.items?.map((it: any, i: number) => (
-                                              <span key={i} className="text-[10px] font-black text-zinc-500 uppercase italic leading-none flex items-center gap-2">
-                                                <span className="w-1.5 h-1.5 rounded-full bg-zinc-300"></span>
-                                                {it?.serial_number}
-                                              </span>
-                                            ))}
+                                      <div className="overflow-hidden flex-1">
+                                        <div className="flex flex-col">
+                                          <span className="text-[11px] font-black text-[#8cbcf3] italic uppercase tracking-wider leading-none mb-1">{group?.brand}</span>
+                                          <h5 className="text-2xl font-black uppercase italic tracking-tighter text-zinc-950 leading-none truncate mb-3">{group?.name}</h5>
+                                          
+                                          <div className="flex flex-wrap gap-x-4 gap-y-1.5">
+                                              {group?.items?.map((it: any, i: number) => (
+                                                <span key={i} className="text-[10px] font-black text-zinc-400 uppercase italic leading-none flex items-center gap-1.5">
+                                                  <span className="w-1 h-1 rounded-full bg-zinc-200"></span>
+                                                  {it?.serial_number}
+                                                </span>
+                                              ))}
+                                          </div>
                                         </div>
                                       </div>
                                     </div>
-                                    <button 
-                                      onClick={() => setCart(cart.filter(c => c?.equipment_models?.model_name !== group.name))} 
-                                      className="text-zinc-200 hover:text-red-500 transition-all p-3 hover:bg-red-50 rounded-2xl active:scale-90 shrink-0"
-                                    >
-                                      <Trash2 size={24} />
-                                    </button>
+
+                                    <div className="flex items-center gap-6 shrink-0 ml-4">
+                                      <div className="flex items-center gap-3 bg-zinc-50 px-3 py-1.5 rounded-2xl border border-zinc-100">
+                                        <button 
+                                          onClick={() => removeFromCartByModel(group.modelId)}
+                                          className="w-6 h-6 flex items-center justify-center bg-white border border-zinc-200 rounded-lg text-zinc-400 hover:text-red-500 hover:border-red-200 transition-all shadow-sm active:scale-90"
+                                        >
+                                          <Minus size={14} />
+                                        </button>
+                                        <span className="text-lg font-black text-zinc-950 italic min-w-[1.5rem] text-center">{group?.qty}</span>
+                                        <button 
+                                          onClick={() => addToCartByModel(group.modelId)}
+                                          className="w-6 h-6 flex items-center justify-center bg-zinc-950 text-white rounded-lg hover:bg-[#8cbcf3] transition-all shadow-md active:scale-90"
+                                        >
+                                          <Plus size={14} />
+                                        </button>
+                                      </div>
+
+                                      <button 
+                                        onClick={() => setCart(cart.filter(c => c?.model_id !== group.modelId))} 
+                                        className="text-zinc-200 hover:text-red-500 transition-all p-3 hover:bg-red-50 rounded-2xl active:scale-90 shrink-0"
+                                      >
+                                        <Trash2 size={24} />
+                                      </button>
+                                    </div>
                                   </div>
                                 ))}
                               </div>
@@ -6659,14 +6885,26 @@ const App: React.FC = () => {
               </div>
             )}
 
-            {view === 'calendar' && currentUser?.role === 'technician' && (
+            {view === 'calendar' && (currentUser?.role === 'technician' || currentUser?.role === 'admin') && (
               <div className="space-y-8 animate-in fade-in slide-in-from-bottom-2 duration-500 text-left">
-                <div className="flex flex-col md:flex-row justify-between items-start md:items-end gap-4">
+                <div className="flex flex-col md:flex-row justify-between items-start md:items-end gap-6">
                   <div className="flex flex-col gap-2">
                     <h3 className="text-4xl font-black italic tracking-tighter text-zinc-950 uppercase">CALENDAR</h3>
                     <p className="text-[10px] font-black text-zinc-400 uppercase tracking-[0.4em] italic leading-none">APPROVED EVENTS SCHEDULE</p>
                   </div>
-                  <div className="flex items-center gap-3 w-full md:w-auto">
+                  
+                  <div className="flex flex-wrap items-center gap-3 w-full md:w-auto">
+                    <div className="relative group min-w-[240px]">
+                      <Search className="absolute left-4 top-1/2 -translate-y-1/2 text-zinc-400 group-focus-within:text-[#8cbcf3] transition-colors" size={16} />
+                      <input 
+                        type="text" 
+                        placeholder="SEARCH EVENTS..."
+                        value={calendarSearchQuery}
+                        onChange={e => setCalendarSearchQuery(e.target.value)}
+                        className="w-full bg-white border border-zinc-100 rounded-2xl py-4 pl-12 pr-6 text-[10px] font-black uppercase tracking-widest focus:outline-none focus:border-[#8cbcf3] focus:ring-4 focus:ring-blue-500/5 transition-all shadow-sm"
+                      />
+                    </div>
+
                     <div className="flex bg-zinc-100 p-1 rounded-xl">
                       <button onClick={() => setCalendarView('month')} className={`px-4 py-2 rounded-lg text-[10px] font-black uppercase tracking-widest transition-all ${calendarView === 'month' ? 'bg-white text-zinc-950 shadow-sm' : 'text-zinc-400 hover:text-zinc-950'}`}>MONTH</button>
                       <button onClick={() => setCalendarView('week')} className={`px-4 py-2 rounded-lg text-[10px] font-black uppercase tracking-widest transition-all ${calendarView === 'week' ? 'bg-white text-zinc-950 shadow-sm' : 'text-zinc-400 hover:text-zinc-950'}`}>WEEK</button>
@@ -6705,7 +6943,7 @@ const App: React.FC = () => {
                       ))}
                       {Array.from({ length: new Date(calendarDate.getFullYear(), calendarDate.getMonth() + 1, 0).getDate() }).map((_, i) => {
                         const dateStr = `${calendarDate.getFullYear()}-${String(calendarDate.getMonth() + 1).padStart(2, '0')}-${String(i + 1).padStart(2, '0')}`;
-                        const dayEvents = eventsList.filter(e => e.status === 'approved' && e.start_date === dateStr);
+                        const dayEvents = eventsList.filter(e => e.start_date === dateStr && (e.event_name || '').toLowerCase().includes(calendarSearchQuery.toLowerCase()));
                         const isToday = new Date().toISOString().split('T')[0] === dateStr;
                         
                         return (
@@ -6715,7 +6953,7 @@ const App: React.FC = () => {
                               {dayEvents.map(event => (
                                 <div 
                                   key={event.id} 
-                                  onClick={() => { setSelectedTechnicianBooking(event); setView('scanner'); }}
+                                  onClick={() => setSelectedCalendarEvent(event)}
                                   className="text-[9px] font-black uppercase tracking-wider bg-zinc-950 text-white p-1.5 rounded-lg cursor-pointer hover:bg-[#8cbcf3] transition-colors truncate"
                                 >
                                   {event.event_name}
@@ -6736,11 +6974,11 @@ const App: React.FC = () => {
                         const diff = d.getDate() - day + i;
                         const currentDate = new Date(d.setDate(diff));
                         const dateStr = currentDate.toISOString().split('T')[0];
-                        const dayEvents = eventsList.filter(e => e.status === 'approved' && e.start_date === dateStr);
+                        const dayEvents = eventsList.filter(e => e.start_date === dateStr && (e.event_name || '').toLowerCase().includes(calendarSearchQuery.toLowerCase()));
                         const isToday = new Date().toISOString().split('T')[0] === dateStr;
-
+                        
                         return (
-                          <div key={`week-day-${i}`} className={`min-h-[400px] p-4 rounded-2xl border ${isToday ? 'border-[#8cbcf3] bg-blue-50/30' : 'border-zinc-100 bg-white'} flex flex-col gap-3`}>
+                          <div key={`week-${i}`} className={`min-h-[150px] p-4 rounded-3xl border ${isToday ? 'border-[#8cbcf3] bg-blue-50/30' : 'border-zinc-100 bg-white'} flex flex-col gap-4 hover:border-zinc-300 transition-colors`}>
                             <div className="flex flex-col items-center pb-3 border-b border-zinc-100">
                               <span className="text-[10px] font-black text-zinc-400 uppercase tracking-widest">{['SUN', 'MON', 'TUE', 'WED', 'THU', 'FRI', 'SAT'][i]}</span>
                               <span className={`text-xl font-black mt-1 w-8 h-8 flex items-center justify-center rounded-full ${isToday ? 'bg-[#8cbcf3] text-white' : 'text-zinc-950'}`}>{currentDate.getDate()}</span>
@@ -6749,7 +6987,7 @@ const App: React.FC = () => {
                               {dayEvents.map(event => (
                                 <div 
                                   key={event.id} 
-                                  onClick={() => { setSelectedTechnicianBooking(event); setView('scanner'); }}
+                                  onClick={() => setSelectedCalendarEvent(event)}
                                   className="text-[10px] font-black uppercase tracking-wider bg-zinc-950 text-white p-3 rounded-xl cursor-pointer hover:bg-[#8cbcf3] transition-colors"
                                 >
                                   <div className="truncate mb-1">{event.event_name}</div>
@@ -6770,16 +7008,16 @@ const App: React.FC = () => {
                         <span className="text-5xl font-black mt-2 text-zinc-950">{calendarDate.getDate()}</span>
                       </div>
                       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-                        {eventsList.filter(e => e.status === 'approved' && e.start_date === calendarDate.toISOString().split('T')[0]).length === 0 ? (
+                        {eventsList.filter(e => e.start_date === calendarDate.toISOString().split('T')[0] && (e.event_name || '').toLowerCase().includes(calendarSearchQuery.toLowerCase())).length === 0 ? (
                           <div className="col-span-full py-20 text-center opacity-30">
                              <Calendar size={48} className="mx-auto mb-4" />
-                             <p className="font-black uppercase tracking-widest italic">NO APPROVED EVENTS FOR THIS DAY</p>
+                             <p className="font-black uppercase tracking-widest italic">NO EVENTS FOR THIS DAY</p>
                           </div>
                         ) : (
-                          eventsList.filter(e => e.status === 'approved' && e.start_date === calendarDate.toISOString().split('T')[0]).map(event => (
+                          eventsList.filter(e => e.start_date === calendarDate.toISOString().split('T')[0] && (e.event_name || '').toLowerCase().includes(calendarSearchQuery.toLowerCase())).map(event => (
                             <div 
                               key={event.id} 
-                              onClick={() => { setSelectedTechnicianBooking(event); setView('scanner'); }}
+                              onClick={() => setSelectedCalendarEvent(event)}
                               className="p-6 rounded-3xl border border-zinc-100 bg-white hover:shadow-lg transition-all cursor-pointer group flex flex-col gap-4"
                             >
                               <div className="flex items-center justify-between">
@@ -6799,6 +7037,83 @@ const App: React.FC = () => {
                     </div>
                   )}
                 </div>
+
+                {/* Calendar Event Detail Modal */}
+                {selectedCalendarEvent && (
+                  <div className="fixed inset-0 bg-black/50 backdrop-blur-sm z-50 flex items-center justify-center p-4">
+                    <div className="bg-white rounded-[2.5rem] p-8 w-full max-w-lg shadow-2xl animate-in fade-in zoom-in duration-300 relative">
+                      <button 
+                        onClick={() => setSelectedCalendarEvent(null)}
+                        className="absolute top-6 right-6 p-2 hover:bg-zinc-50 rounded-full transition-colors text-zinc-400 hover:text-zinc-950"
+                      >
+                        <X size={24} />
+                      </button>
+
+                      <div className="flex flex-col gap-6">
+                        <div className="flex flex-col gap-2">
+                          <span className="text-[10px] font-black text-[#8cbcf3] uppercase tracking-widest italic">EVENT DETAILS</span>
+                          <h3 className="text-4xl font-black italic tracking-tighter text-zinc-950 uppercase leading-none">{selectedCalendarEvent.event_name}</h3>
+                        </div>
+
+                        <div className="grid grid-cols-2 gap-6">
+                          <div className="flex flex-col gap-2">
+                            <span className="text-[10px] font-black text-zinc-400 uppercase tracking-widest">DATES</span>
+                            <div className="flex flex-col gap-1">
+                              <span className="text-xs font-black text-zinc-950 uppercase tracking-widest">FROM: {selectedCalendarEvent.start_date}</span>
+                              <span className="text-xs font-black text-zinc-400 uppercase tracking-widest">TO: {selectedCalendarEvent.end_date || 'TBA'}</span>
+                            </div>
+                          </div>
+                          <div className="flex flex-col gap-2">
+                            <span className="text-[10px] font-black text-zinc-400 uppercase tracking-widest">LOCATION</span>
+                            <div className="flex items-center gap-2 text-xs font-black text-zinc-950 uppercase tracking-widest">
+                              <MapPin size={14} className="text-[#8cbcf3]" />
+                              {selectedCalendarEvent.location || 'TBA'}
+                            </div>
+                          </div>
+                        </div>
+
+                        <div className="flex flex-col gap-2">
+                          <span className="text-[10px] font-black text-zinc-400 uppercase tracking-widest">ENGINEERS</span>
+                          <div className="flex flex-wrap gap-2">
+                            {selectedCalendarEvent.bookings?.map((b: any) => (
+                              <div key={b.id} className="flex items-center gap-2 bg-zinc-50 px-4 py-2 rounded-xl border border-zinc-100">
+                                <UserIcon size={14} className="text-[#8cbcf3]" />
+                                <span className="text-[10px] font-black text-zinc-950 uppercase tracking-widest">{b.creator?.full_name || 'UNKNOWN'}</span>
+                              </div>
+                            )) || (
+                              <span className="text-xs font-bold text-zinc-400 italic">NO ENGINEERS ASSIGNED</span>
+                            )}
+                          </div>
+                        </div>
+
+                        <div className="pt-6 border-t border-zinc-100 flex gap-3">
+                          <button 
+                            onClick={() => {
+                              setViewingEventId(selectedCalendarEvent.id);
+                              setView('view-order-details');
+                              setSelectedCalendarEvent(null);
+                            }}
+                            className="flex-1 bg-zinc-950 text-white py-4 rounded-2xl font-black text-[10px] uppercase tracking-widest hover:bg-[#8cbcf3] transition-all shadow-lg italic"
+                          >
+                            VIEW FULL ORDER DETAILS
+                          </button>
+                          {currentUser?.role === 'technician' && (
+                            <button 
+                              onClick={() => {
+                                setSelectedTechnicianBooking(selectedCalendarEvent);
+                                setView('scanner');
+                                setSelectedCalendarEvent(null);
+                              }}
+                              className="flex-1 bg-[#e14242] text-white py-4 rounded-2xl font-black text-[10px] uppercase tracking-widest hover:bg-red-600 transition-all shadow-lg italic"
+                            >
+                              OPEN SCANNER
+                            </button>
+                          )}
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                )}
               </div>
             )}
 
