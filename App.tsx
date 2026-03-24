@@ -706,7 +706,15 @@ const App: React.FC = () => {
         setBrands(results[2]?.data || []);
         setModels(results[3]?.data || []);
         setTotalFleetUnits(results[4]?.count || results[0]?.data?.length || 0);
-        setEventsList(results[5]?.data || []);
+        
+        const today = new Date().toISOString().split('T')[0];
+        const processedEvents = (results[5]?.data || []).map((e: any) => {
+          if (e.status === 'approved' && e.end_date < today) {
+            return { ...e, status: 'ended' };
+          }
+          return e;
+        });
+        setEventsList(processedEvents);
         
         if (results[6]) {
             setStaff(results[6]?.data || []);
@@ -815,7 +823,7 @@ const App: React.FC = () => {
     const ids = new Set();
 
     eventsList.forEach(event => {
-      if (event.status === 'rejected') return;
+      if (event.status === 'rejected' || event.status === 'canceled' || event.status === 'ended') return;
       if (!event.start_date || !event.end_date) return;
       
       const eStart = new Date(event.start_date);
@@ -1230,26 +1238,26 @@ const App: React.FC = () => {
     }
   };
 
-  const handleRejectOrder = async (bookingId: string, eventId: string) => {
+  const handleCancelOrder = async (bookingId: string, eventId: string) => {
     setConfirmModal({
       isOpen: true,
-      title: 'REJECT ORDER',
-      message: 'Are you sure you want to reject this order? This will mark it as rejected.',
+      title: 'CANCEL ORDER',
+      message: 'Are you sure you want to cancel this order? This will mark it as canceled.',
       isDestructive: true,
-      confirmText: 'REJECT',
+      confirmText: 'CANCEL',
       onConfirm: async () => {
         setSyncing(true);
         try {
-          const { error: eventErr } = await supabase.from("events").update({ status: 'rejected' }).eq('id', eventId);
+          const { error: eventErr } = await supabase.from("events").update({ status: 'canceled' }).eq('id', eventId);
           if (eventErr) throw eventErr;
           
-          const { error: bookingErr } = await supabase.from("bookings").update({ status: 'Pending' }).eq('id', bookingId);
+          const { error: bookingErr } = await supabase.from("bookings").update({ status: 'Canceled' }).eq('id', bookingId);
           if (bookingErr) throw bookingErr;
           
-          notify("Order Rejected", "info");
+          notify("Order Canceled", "info");
           fetchSupabaseData(currentUser?.role);
         } catch (err: any) {
-          handleSupabaseError(err, "Rejection");
+          handleSupabaseError(err, "Cancellation");
         } finally {
           setSyncing(false);
         }
@@ -2445,7 +2453,10 @@ const App: React.FC = () => {
                           <div className="flex items-center gap-4">
                             <span className={`px-4 py-1.5 rounded-xl text-[10px] font-black uppercase tracking-widest italic ${
                               event.status === 'approved' ? 'bg-emerald-50 text-emerald-600' : 
-                              event.status === 'pending_approval' ? 'bg-amber-50 text-amber-600' : 'bg-zinc-50 text-zinc-400'
+                              event.status === 'pending_approval' ? 'bg-amber-50 text-amber-600' :
+                              event.status === 'ended' ? 'bg-blue-50 text-blue-600' :
+                              event.status === 'canceled' || event.status === 'rejected' ? 'bg-red-50 text-red-600' :
+                              'bg-zinc-50 text-zinc-400'
                             }`}>
                               {event.status === 'pending_approval' ? 'PENDING APPROVAL' : event.status?.replace('_', ' ').toUpperCase()}
                             </span>
@@ -3925,6 +3936,8 @@ const App: React.FC = () => {
                         <option value="">ALL STATUS</option>
                         <option value="approved">APPROVED</option>
                         <option value="pending_approval">PENDING</option>
+                        <option value="ended">ENDED</option>
+                        <option value="canceled">CANCELED</option>
                         <option value="rejected">REJECTED</option>
                       </select>
                     </div>
@@ -3969,7 +3982,11 @@ const App: React.FC = () => {
                           })
                           .sort((a, b) => new Date(b.start_date).getTime() - new Date(a.start_date).getTime())
                           .map((event) => {
-                            const engineer = event.bookings?.[0]?.creator?.full_name || 'N/A';
+                            const booking = event.bookings?.[0];
+                            const creatorId = event.created_by || booking?.created_by;
+                            const staffMember = staff.find(s => s.id === creatorId);
+                            const bookingCreator = Array.isArray(booking?.creator) ? booking.creator[0] : booking?.creator;
+                            const engineer = staffMember?.full_name || bookingCreator?.full_name || 'N/A';
                             return (
                               <tr 
                                 key={event.id} 
@@ -4004,7 +4021,8 @@ const App: React.FC = () => {
                                   <span className={`inline-flex px-4 py-1.5 rounded-xl text-[10px] font-black uppercase tracking-widest italic ${
                                     event.status === 'approved' ? 'bg-emerald-50 text-emerald-600' :
                                     event.status === 'pending_approval' ? 'bg-amber-50 text-amber-600' :
-                                    event.status === 'rejected' ? 'bg-red-50 text-red-600' :
+                                    event.status === 'ended' ? 'bg-blue-50 text-blue-600' :
+                                    event.status === 'canceled' || event.status === 'rejected' ? 'bg-red-50 text-red-600' :
                                     'bg-zinc-50 text-zinc-400'
                                   }`}>
                                     {event.status === 'pending_approval' ? 'PENDING' : event.status.toUpperCase()}
@@ -4977,7 +4995,7 @@ const App: React.FC = () => {
                               </div>
                               <div className="aspect-square bg-zinc-50 rounded-3xl mb-6 flex items-center justify-center p-6">
                                 {model.image_url ? (
-                                  <img src={model.image_url} className="w-full h-full object-contain mix-blend-multiply group-hover:scale-110 transition-transform duration-500" alt="" />
+                                  <img src={model.image_url} className="w-[75%] h-[75%] object-contain mix-blend-multiply group-hover:scale-110 transition-transform duration-500" alt="" />
                                 ) : (
                                   <Box size={40} className="text-zinc-200" />
                                 )}
@@ -5060,7 +5078,7 @@ const App: React.FC = () => {
                               </div>
                               <div className="aspect-square bg-zinc-50 rounded-2xl md:rounded-3xl mb-4 md:mb-6 flex items-center justify-center p-4 md:p-6">
                                 {model.image_url ? (
-                                  <img src={model.image_url} className="w-full h-full object-contain mix-blend-multiply group-hover:scale-110 transition-transform duration-500" alt="" />
+                                  <img src={model.image_url} className="w-[75%] h-[75%] object-contain mix-blend-multiply group-hover:scale-110 transition-transform duration-500" alt="" />
                                 ) : (
                                   <Box className="w-8 h-8 md:w-10 md:h-10 text-zinc-200" />
                                 )}
@@ -5147,7 +5165,7 @@ const App: React.FC = () => {
 
                               <div className="aspect-square bg-zinc-50 rounded-xl mb-4 flex items-center justify-center p-4">
                                 {model.image_url ? (
-                                  <img src={model.image_url} className="w-full h-full object-contain mix-blend-multiply" alt={model.model_name} />
+                                  <img src={model.image_url} className="w-[75%] h-[75%] object-contain mix-blend-multiply" alt={model.model_name} />
                                 ) : (
                                   <Box className="w-6 h-6 md:w-8 md:h-8 text-zinc-300" />
                                 )}
@@ -5620,14 +5638,15 @@ const App: React.FC = () => {
                             <Edit3 size={16} /> EDIT / MODIFY
                           </button>
                           <button 
-                            onClick={async () => {
-                              handleDeleteEvent(selectedRequest.id);
+                            onClick={() => {
+                              const booking = selectedRequest.bookings?.[0];
+                              if (booking) handleCancelOrder(booking.id, selectedRequest.id);
                               setSelectedRequest(null);
                             }}
                             disabled={syncing}
                             className="bg-red-50 text-red-600 hover:bg-red-600 hover:text-white px-8 py-4 rounded-xl font-black text-[10px] uppercase tracking-widest transition-all shadow-lg italic flex items-center justify-center gap-3 disabled:opacity-50"
                           >
-                            {syncing ? <Loader2 className="animate-spin" size={16} /> : <Trash2 size={16} />} REMOVE ALL FROM ORDER
+                            {syncing ? <Loader2 className="animate-spin" size={16} /> : <Trash2 size={16} />} CANCEL ORDER
                           </button>
                         </div>
                       </div>
@@ -5744,7 +5763,10 @@ const App: React.FC = () => {
                     </div>
 
                     <div className="grid grid-cols-1 gap-8 mt-12">
-                      {eventsList.filter(e => e.status === 'approved').filter(e => {
+                      {eventsList.filter(e => {
+                        const today = new Date().toISOString().split('T')[0];
+                        return e.status === 'approved' && e.end_date >= today;
+                      }).filter(e => {
                         if (!activeEventsSearchQuery) return true;
                         const query = activeEventsSearchQuery.toLowerCase();
                         const booking = e.bookings?.[0];
@@ -5758,7 +5780,10 @@ const App: React.FC = () => {
                            <p className="font-black uppercase tracking-[0.5em] italic text-sm mb-6">NO ACTIVE EVENTS FOUND</p>
                         </div>
                       ) : (
-                        eventsList.filter(e => e.status === 'approved').filter(e => {
+                        eventsList.filter(e => {
+                          const today = new Date().toISOString().split('T')[0];
+                          return e.status === 'approved' && e.end_date >= today;
+                        }).filter(e => {
                           if (!activeEventsSearchQuery) return true;
                           const query = activeEventsSearchQuery.toLowerCase();
                           const booking = e.bookings?.[0];
@@ -6089,7 +6114,7 @@ const App: React.FC = () => {
                               setGlobalSearch('');
                            }} className="bg-white rounded-[2rem] border border-zinc-100 shadow-sm hover:shadow-xl transition-all group flex flex-col relative overflow-hidden text-left cursor-pointer border-b-[6px] border-b-zinc-50 hover:border-b-[#8cbcf3] h-full">
                               <div className="aspect-square bg-white flex items-center justify-center p-6 relative group-hover:bg-zinc-50/20 transition-all flex-none">
-                                 {model?.image_url ? <img src={model.image_url} className="w-full h-full object-contain group-hover:scale-105 transition-transform" alt={model?.model_name} /> : <Box className="text-zinc-100" size={60} />}
+                                 {model?.image_url ? <img src={model.image_url} className="w-[75%] h-[75%] object-contain group-hover:scale-110 transition-transform" alt={model?.model_name} /> : <Box className="text-zinc-100" size={60} />}
                                  <div className="absolute top-4 right-4 flex flex-col gap-1 items-end">
                                    <div className="px-3 py-1.5 bg-emerald-500 text-white text-[8px] font-black uppercase tracking-widest rounded-lg shadow-lg border border-emerald-400">{inventory.filter(i => i.model_id === model.id).length} IN STOCK</div>
                                    <div className="px-3 py-1.5 bg-blue-500 text-white text-[8px] font-black uppercase tracking-widest rounded-lg shadow-lg border border-blue-400">{inventory.filter(i => i.model_id === model.id && i.status === 'Available').length} AVAILABLE</div>
@@ -6151,7 +6176,7 @@ const App: React.FC = () => {
                             {modelsInCategory.map(model => (
                               <div key={model.model_name} onClick={() => setSelectedModel(model)} className="bg-white rounded-[2rem] border border-zinc-100 shadow-sm hover:shadow-xl transition-all group flex flex-col relative overflow-hidden text-left cursor-pointer border-b-[6px] border-b-zinc-50 hover:border-b-[#8cbcf3] h-full">
                                  <div className="aspect-square bg-white flex items-center justify-center p-6 relative group-hover:bg-zinc-50/20 transition-all flex-none">
-                                    {model?.image_url ? <img src={model.image_url} className="w-full h-full object-contain group-hover:scale-105 transition-transform" alt={model?.model_name} /> : <Box className="text-zinc-100" size={60} />}
+                                    {model?.image_url ? <img src={model.image_url} className="w-[75%] h-[75%] object-contain group-hover:scale-110 transition-transform" alt={model?.model_name} /> : <Box className="text-zinc-100" size={60} />}
                                    <div className="absolute top-4 right-4 flex flex-col gap-1 items-end">
                                    <div className="px-3 py-1.5 bg-emerald-500 text-white text-[8px] font-black uppercase tracking-widest rounded-lg shadow-lg border border-emerald-400">{inventory.filter(i => i.model_id === model.id).length} IN STOCK</div>
                                    <div className="px-3 py-1.5 bg-blue-500 text-white text-[8px] font-black uppercase tracking-widest rounded-lg shadow-lg border border-blue-400">{inventory.filter(i => i.model_id === model.id && getSerialNumberStatus(i) === 'Available').length} AVAILABLE</div>
@@ -6213,7 +6238,7 @@ const App: React.FC = () => {
                          <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 lg:gap-10">
                             <div className="flex flex-col gap-6">
                                <div className="bg-[#f8f9fa] rounded-[2.5rem] p-6 md:p-8 flex flex-col items-center justify-center relative aspect-square group">
-                                  {selectedModel?.image_url ? <img src={selectedModel.image_url} className="w-full h-full object-contain scale-110 drop-shadow-2xl group-hover:scale-115 transition-transform duration-1000" alt={selectedModel?.model_name} /> : <Box className="text-zinc-200" size={160} />}
+                                  {selectedModel?.image_url ? <img src={selectedModel.image_url} className="w-[85%] h-[85%] object-contain drop-shadow-2xl group-hover:scale-105 transition-transform duration-1000" alt={selectedModel?.model_name} /> : <Box className="text-zinc-200" size={160} />}
                                   {currentUser?.role === 'admin' && (
                                     <>
                                       <input 
@@ -7075,12 +7100,18 @@ const App: React.FC = () => {
                         <div className="flex flex-col gap-2">
                           <span className="text-[10px] font-black text-zinc-400 uppercase tracking-widest">ENGINEERS</span>
                           <div className="flex flex-wrap gap-2">
-                            {selectedCalendarEvent.bookings?.map((b: any) => (
-                              <div key={b.id} className="flex items-center gap-2 bg-zinc-50 px-4 py-2 rounded-xl border border-zinc-100">
-                                <UserIcon size={14} className="text-[#8cbcf3]" />
-                                <span className="text-[10px] font-black text-zinc-950 uppercase tracking-widest">{b.creator?.full_name || 'UNKNOWN'}</span>
-                              </div>
-                            )) || (
+                            {selectedCalendarEvent.bookings?.map((b: any) => {
+                              const creatorId = selectedCalendarEvent.created_by || b.created_by;
+                              const staffMember = staff.find(s => s.id === creatorId);
+                              const bookingCreator = Array.isArray(b.creator) ? b.creator[0] : b.creator;
+                              const name = staffMember?.full_name || bookingCreator?.full_name || 'UNKNOWN';
+                              return (
+                                <div key={b.id} className="flex items-center gap-2 bg-zinc-50 px-4 py-2 rounded-xl border border-zinc-100">
+                                  <UserIcon size={14} className="text-[#8cbcf3]" />
+                                  <span className="text-[10px] font-black text-zinc-950 uppercase tracking-widest">{name}</span>
+                                </div>
+                              );
+                            }) || (
                               <span className="text-xs font-bold text-zinc-400 italic">NO ENGINEERS ASSIGNED</span>
                             )}
                           </div>
